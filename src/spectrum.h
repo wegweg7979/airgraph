@@ -60,7 +60,10 @@ struct DbmRange {
 DbmRange rangeFor(const QList<double> &values, double minimumSpan = 20.0,
                   double highest = -25.0, double lowest = -100.0);
 
-// Green / amber / red, the way a signal graph has always read.
+// Green / orange / red, the way a signal graph has always read. Vivid enough to
+// separate three APs at a glance on a dark plot; the lightness ladder is what
+// keeps them apart for a colour-blind reader, since green and orange share a
+// hue direction once desaturated.
 QColor strengthColor(double dbm);
 
 } // namespace spectrum

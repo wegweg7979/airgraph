@@ -151,10 +151,10 @@ DbmRange rangeFor(const QList<double> &values, double minimumSpan, double highes
 
 QColor strengthColor(double dbm) {
     if (dbm >= -60.0)
-        return QColor(0x7f, 0xd1, 0x8a);   // green: you could use this
+        return QColor(0x3a, 0xe0, 0x6b);   // bright green: you could use this
     if (dbm >= -75.0)
-        return QColor(0xe6, 0xc0, 0x6a);   // amber: usable
-    return QColor(0xe0, 0x7a, 0x7a);       // red: barely there
+        return QColor(0xff, 0x9e, 0x2c);   // bright orange: usable
+    return QColor(0xff, 0x5c, 0x5c);       // bright red: barely there
 }
 
 } // namespace spectrum

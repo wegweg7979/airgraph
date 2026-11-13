@@ -446,11 +446,25 @@ private slots:
         QCOMPARE(spectrum::bestChannel({}, { one, six, eleven }), one);
     }
 
-    void strengthColorIsGreenAmberRed()
+    void strengthColorIsVividGreenOrangeRed()
     {
-        QCOMPARE(spectrum::strengthColor(-50.0), QColor(0x7f, 0xd1, 0x8a));
-        QCOMPARE(spectrum::strengthColor(-70.0), QColor(0xe6, 0xc0, 0x6a));
-        QCOMPARE(spectrum::strengthColor(-90.0), QColor(0xe0, 0x7a, 0x7a));
+        QCOMPARE(spectrum::strengthColor(-50.0), QColor(0x3a, 0xe0, 0x6b));
+        QCOMPARE(spectrum::strengthColor(-70.0), QColor(0xff, 0x9e, 0x2c));
+        QCOMPARE(spectrum::strengthColor(-90.0), QColor(0xff, 0x5c, 0x5c));
+
+        // The ask was "bright", so the brightness is the contract, not a
+        // side effect of the three RGB triples above: a muted palette that
+        // happens to keep the same hues fails here.
+        const QList<double> levels = { -50.0, -70.0, -90.0 };
+        for (double dbm : levels) {
+            const QColor colour = spectrum::strengthColor(dbm);
+            QVERIFY2(colour.value() >= 200, qPrintable(colour.name() + " is not vivid"));
+        }
+
+        // And they still have to read as green, orange and red.
+        QVERIFY(spectrum::strengthColor(-50.0).hue() > 100 && spectrum::strengthColor(-50.0).hue() < 180);
+        QVERIFY(spectrum::strengthColor(-70.0).hue() > 15 && spectrum::strengthColor(-70.0).hue() < 45);
+        QVERIFY(spectrum::strengthColor(-90.0).hue() < 15 || spectrum::strengthColor(-90.0).hue() > 345);
     }
 
     void axisRangeKeepsTheDataInsideIt()

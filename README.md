@@ -79,6 +79,14 @@ the cleanest of 1/6/11 on 2.4 GHz, the only three that do not overlap each other
 The window opens on the band your machine is associated on, and the tabs carry
 per-band counts, so an empty 6 GHz reads as empty rather than broken.
 
+A bell's colour is its strength: bright green at −60 dBm and better ("you could
+use this"), bright orange down to −75 ("usable"), bright red below that ("barely
+there"). The fills are deliberately near-opaque. A translucent orange over a
+near-black plot composites to brown — measured, `#7d5120` — and four stacked
+bells on one 2.4 GHz channel muddle each other further, so the colour you picked
+is the colour you see. Overlapping bells still read as overlapping, because every
+outline is painted after every fill.
+
 The axis comes from this radio, not a hardcoded table: `iw phy <phy> info` lists
 the channels the phy actually has (no privilege needed), with the IEEE table as
 a fallback.

@@ -218,7 +218,10 @@ void ScanBackend::applyDemoData() {
 
     const QList<AccessPoint> demo = {
         make(QStringLiteral("Home-5G"), QStringLiteral("02:00:00:00:00:01"), 5180, 84, true, 80),
-        make(QStringLiteral("Home-2G"), QStringLiteral("02:00:00:00:00:02"), 2412, 70, false, 20),
+        // 70 would be -65 dBm (orange). 82 is -59 dBm: the demo is the thing the
+        // screenshot shows, so it has to span all three strength colours —
+        // green here, orange on Studio-AP, red on the two on channel 11.
+        make(QStringLiteral("Home-2G"), QStringLiteral("02:00:00:00:00:02"), 2412, 82, false, 20),
         make(QStringLiteral("Studio-AP"), QStringLiteral("02:00:00:00:00:03"), 2437, 62, false, 20),
         make(QStringLiteral("Cafe-Guest"), QStringLiteral("02:00:00:00:00:04"), 2462, 44, false, 20,
              QStringLiteral("open")),
