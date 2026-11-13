@@ -225,7 +225,10 @@ void ScanBackend::applyDemoData() {
         make(QStringLiteral("Studio-AP"), QStringLiteral("02:00:00:00:00:03"), 2437, 62, false, 20),
         make(QStringLiteral("Cafe-Guest"), QStringLiteral("02:00:00:00:00:04"), 2462, 44, false, 20,
              QStringLiteral("open")),
-        make(QStringLiteral("Neighbour-2G"), QStringLiteral("02:00:00:00:00:05"), 2462, 36, false, 20),
+        // Shares channel 11 with Cafe-Guest 7 dB down, which is the pile-up case
+        // a 2.4 GHz band actually is — and the one where paint order decides
+        // whether the weaker AP is on the screen at all.
+        make(QStringLiteral("Neighbour-2G"), QStringLiteral("02:00:00:00:00:05"), 2462, 58, false, 20),
         make(QStringLiteral("Neighbour-5G"), QStringLiteral("02:00:00:00:00:06"), 5500, 33, false, 20),
     };
 

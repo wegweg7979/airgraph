@@ -467,6 +467,21 @@ private slots:
         QVERIFY(spectrum::strengthColor(-90.0).hue() < 15 || spectrum::strengthColor(-90.0).hue() > 345);
     }
 
+    void bellsPaintTallestFirst()
+    {
+        // Two APs on one channel share a footprint, and the fills are opaque, so
+        // the bell painted last is the only one you see. Tallest first is what
+        // keeps the weak one visible instead of buried — the failure mode is
+        // silent, since the data still lists every AP in the table.
+        QVERIFY(spectrum::tallerFirst(-50.0, -80.0));
+        QVERIFY(!spectrum::tallerFirst(-80.0, -50.0));
+        QVERIFY(!spectrum::tallerFirst(-70.0, -70.0));   // strict: equal dBm, no offset
+
+        QList<double> plotted = { -80.0, -50.0, -65.0 };
+        std::sort(plotted.begin(), plotted.end(), spectrum::tallerFirst);
+        QCOMPARE(plotted, QList<double>({ -50.0, -65.0, -80.0 }));
+    }
+
     void axisRangeKeepsTheDataInsideIt()
     {
         // A steady signal: the span floor keeps it off the edges.

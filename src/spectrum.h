@@ -66,4 +66,12 @@ DbmRange rangeFor(const QList<double> &values, double minimumSpan = 20.0,
 // hue direction once desaturated.
 QColor strengthColor(double dbm);
 
+// The order the bells are painted in: tallest first. Two APs on one channel
+// occupy the same footprint, and the fills are near-opaque, so whichever is
+// painted last is the one you can see — painting the tall bell first means a
+// weaker neighbour stays whole inside it instead of vanishing underneath it.
+// (It only looks like a detail: "the weak AP disappeared" is what painting the
+// tall one last produces, and it is invisible in the data.)
+inline bool tallerFirst(double a, double b) { return a > b; }
+
 } // namespace spectrum

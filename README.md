@@ -84,8 +84,10 @@ use this"), bright orange down to −75 ("usable"), bright red below that ("bare
 there"). The fills are deliberately near-opaque. A translucent orange over a
 near-black plot composites to brown — measured, `#7d5120` — and four stacked
 bells on one 2.4 GHz channel muddle each other further, so the colour you picked
-is the colour you see. Overlapping bells still read as overlapping, because every
-outline is painted after every fill.
+is the colour you see. Overlapping bells still read as overlapping: every outline
+is painted after every fill, and the **tallest bell is painted first**, so a
+weaker AP on the same channel stays whole inside its stronger neighbour rather
+than vanishing underneath it.
 
 The axis comes from this radio, not a hardcoded table: `iw phy <phy> info` lists
 the channels the phy actually has (no privilege needed), with the IEEE table as

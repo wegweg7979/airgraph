@@ -159,9 +159,11 @@ void SpectrumItem::paint(QPainter *painter) {
     }
 
     const QColor accent(m_accent);
-    // Weakest first so a strong AP's bell is not painted over by a faint one.
+    // Tallest bell first: the fills are near-opaque, and APs on the same channel
+    // share a footprint, so the one painted last is the one you see. Painting
+    // the tallest first keeps every shorter neighbour visible inside it.
     std::sort(plotted.begin(), plotted.end(),
-              [](const PlottedAp &a, const PlottedAp &b) { return a.dbm < b.dbm; });
+              [](const PlottedAp &a, const PlottedAp &b) { return spectrum::tallerFirst(a.dbm, b.dbm); });
 
     painter->save();
     painter->setClipRect(plot);
