@@ -13,22 +13,7 @@ Scans with NetworkManager over D-Bus — no root, no polkit prompt — and draws
 what is on the air. It never connects, disconnects, or changes radio or
 regulatory state: it reads the air and reports it.
 
-> Status: the graph (M2), the live table and the scan cadence (M1) are done.
-> `PLAN.md` has the milestones; `spikes/` has the three M0 experiments that
-> shaped the design.
 
-## Run it
-
-```sh
-bin/build && ./build/airgraph
-```
-
-## Commands
-
-Agents and terminals get the same data without a window — `--json` wherever it
-makes sense, exit 0 or 1, errors on stderr:
-
-```sh
 airgraph check                 # can this machine be surveyed? device, bands, scan accepted
 airgraph scan                  # one scan, printed as a table
 airgraph scan --json           # the same, as JSON
@@ -69,38 +54,7 @@ repeated, so a spreadsheet or script can use it directly), `Shift+E` writes
 interrupted export cannot truncate a previous one. The window shows the path it
 wrote.
 
-## The graph
 
-One bell per access point across a **linear frequency axis** — that is what makes
-2.4 GHz's overlapping channels honest and 5 GHz's gaps visible — with a
-per-channel congestion strip underneath showing a bar for how busy each channel
-is and a five-dot rating (`●●●●●` clear, `●○○○○` swamped). The summary line names
-the cleanest of 1/6/11 on 2.4 GHz, the only three that do not overlap each other.
-The window opens on the band your machine is associated on, and the tabs carry
-per-band counts, so an empty 6 GHz reads as empty rather than broken.
-
-A bell's colour is its strength: bright green at −60 dBm and better ("you could
-use this"), bright orange down to −75 ("usable"), bright red below that ("barely
-there"). The fills are deliberately near-opaque. A translucent orange over a
-near-black plot composites to brown — measured, `#7d5120` — and four stacked
-bells on one 2.4 GHz channel muddle each other further, so the colour you picked
-is the colour you see. Overlapping bells still read as overlapping: every outline
-is painted after every fill, and the **tallest bell is painted first**, so a
-weaker AP on the same channel stays whole inside its stronger neighbour rather
-than vanishing underneath it.
-
-The axis comes from this radio, not a hardcoded table: `iw phy <phy> info` lists
-the channels the phy actually has (no privilege needed), with the IEEE table as
-a fallback.
-
-## Install (this machine, hurunagus)
-
-```sh
-bin/install          # ~/.local/bin/airgraph, plus the launcher entry and icon
-```
-
-`/usr` is read-only on this immutable host, so the install goes to `~/.local`
-and touches nothing else. The RPM is the system-wide path.
 
 ## Fedora package (COPR)
 
@@ -109,52 +63,7 @@ sudo dnf copr enable wegweg7979/airgraph
 sudo dnf install airgraph
 ```
 
-`rpm/airgraph.spec` builds the binary, the launcher entry and the icon out of the
-release tarball, and COPR builds that spec from the git tag. Releasing:
 
-```sh
-# bump Version: in rpm/airgraph.spec, commit, then:
-git tag v0.1.0 && git push origin v0.1.0
-bin/spec-sources     # fetches that tag's tarball, rewrites rpm/airgraph.spec.sources
-# commit the refreshed hash
-```
-
-The hash cannot be taken before the tag exists, which is why it is its own
-commit. `%check` runs `bin/test` offscreen in the build, so a release that fails
-its own tests never publishes.
-
-## What the numbers mean
-
-- **dBm** is derived, not measured: NetworkManager reports strength as 0–100,
-  and this inverts its own mapping (`strength / 2 − 100`), quantised to 0.5 dB.
-  Good for an axis, not for a measurement.
-- **`channel · width`** — width is measured for the link your machine is on
-  (`iw dev <iface> info` reports it, unprivileged: 40 MHz here) and **assumed
-  20 MHz** for every other AP, which is marked with `~`. NetworkManager itself
-  reports no width at all, and reading other APs' widths needs `iw scan`, i.e.
-  root.
-- **changed** — seconds since this access point's signal last moved.
-- **One scan every 10 s** is deliberate: NetworkManager accepts faster requests
-  and silently coalesces them, so a faster poll shows no more data (spike 003
-  measured this). Data age is displayed honestly, and "scanning…" only clears
-  when `LastScan` proves a scan really completed.
-
-## Tests
-
-```sh
-bin/test        # offscreen, no display, no D-Bus, no scanning
-```
-
-Every number the graph draws — the frequency axis, the dBm axis, the bell, the
-congestion score, the 1/6/11 choice — is a pure function in `src/spectrum.*` and
-is pinned by a test. That is not ceremony: the dBm axis sign was wrong the first
-time, and the test is what caught it.
-
-## Screenshot without a display
-
-```sh
-QT_QPA_PLATFORM=offscreen ./build/airgraph --band 2 --grab /tmp/airgraph.png
-```
 
 ## Licence
 
