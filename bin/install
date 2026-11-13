@@ -1,0 +1,20 @@
+#!/bin/sh
+# Installs into the user's own home. /usr is read-only on this immutable host
+# and nothing here may touch the running OS, so this writes to ~/.local only:
+# the binary, the launcher entry, and the icon. The M5 RPM is the other path.
+set -eu
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+PREFIX="${PREFIX:-$HOME/.local}"
+
+"$ROOT/bin/build"
+
+install -Dm755 "$ROOT/build/airgraph" "$PREFIX/bin/airgraph"
+install -Dm644 "$ROOT/pkgbuild/airgraph.desktop" "$PREFIX/share/applications/airgraph.desktop"
+install -Dm644 "$ROOT/pkgbuild/airgraph.svg" "$PREFIX/share/icons/hicolor/scalable/apps/airgraph.svg"
+
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$PREFIX/share/applications" || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -qtf "$PREFIX/share/icons/hicolor" >/dev/null 2>&1 || true
+
+echo "Installed $PREFIX/bin/airgraph"
+echo "It shows up in the Omarchy launcher (Super + Space) from the next reload."

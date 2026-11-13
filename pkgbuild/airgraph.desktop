@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Airgraph
+Comment=See which Wi-Fi channels are crowded, and how strong each access point is
+Exec=airgraph
+Icon=airgraph
+Terminal=false
+Categories=Utility;Network;
+StartupWMClass=airgraph
