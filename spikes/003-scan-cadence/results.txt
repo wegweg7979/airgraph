@@ -1,0 +1,31 @@
+### spike003 2 6 20   (2026-11-13T12:48:43+00:00)
+device /org/freedesktop/NetworkManager/Devices/4 — 6 attempts, 2 s apart, then 20 s passive
+
+initial LastScan=7127061  10 APs, strongest -65.5 dBm*
+attempt 1: accepted in 1 ms
+           LastScan=7127061 (UNCHANGED, +0 s)  10 APs, strongest -65.5 dBm*
+attempt 2: accepted in 3 ms
+           LastScan=7138730 (moved, +11669 s)  10 APs, strongest -55.0 dBm*
+attempt 3: accepted in 4 ms
+           LastScan=7138730 (UNCHANGED, +0 s)  10 APs, strongest -55.5 dBm*
+attempt 4: accepted in 2 ms
+           LastScan=7138730 (UNCHANGED, +0 s)  10 APs, strongest -55.5 dBm*
+attempt 5: accepted in 6 ms
+           LastScan=7138730 (UNCHANGED, +0 s)  10 APs, strongest -55.5 dBm*
+attempt 6: accepted in 5 ms
+           LastScan=7146307 (moved, +7577 s)  10 APs, strongest -66.5 dBm*
+
+6 accepted, 0 refused, 2 of 6 requests actually completed a scan
+
+--- 20 s passive, no scan requests (10 APs watched) ---
+[  7394 ms] strength update #1 -> 90 (-55.0 dBm*)
+[  7394 ms] strength update #2 -> 87 (-56.5 dBm*)
+[  7394 ms] strength update #3 -> 70 (-65.0 dBm*)
+[  7394 ms] strength update #4 -> 49 (-75.5 dBm*)
+[  7394 ms] strength update #5 -> 57 (-71.5 dBm*)
+[  7394 ms] strength update #6 -> 55 (-72.5 dBm*)
+[  7395 ms] strength update #7 -> 47 (-76.5 dBm*)
+[  7395 ms] strength update #8 -> 34 (-83.0 dBm*)
+[  7395 ms] strength update #9 -> 45 (-77.5 dBm*)
+[ 10686 ms] strength update #10 -> 70 (-65.0 dBm*)
+--- 10 strength updates in 20 s with zero scans requested ---

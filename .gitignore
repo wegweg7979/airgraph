@@ -1,0 +1,7 @@
+/build/
+spikes/*/build/
+spikes/*/Makefile
+spikes/*/.qmake.stash
+*.o
+*.moc
+moc_*.cpp

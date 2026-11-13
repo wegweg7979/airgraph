@@ -1,0 +1,33 @@
+### spike001 --watch 30 --rescan 8   (2026-11-13T12:44:05+00:00)
+wifi device: /org/freedesktop/NetworkManager/Devices/4
+RequestScan: accepted in 2 ms
+SSID                   BSSID              band  freq    dBm*    rate   security  LastSeen
+hurunagus              72:DE:4B:62:B6:FF  5     5500    -55.5   1170000 rsn       6858
+hurunagus              7A:DE:4B:62:B6:F8  2     2412    -57.5   130000 rsn       6857
+VM7074731              CC:58:30:21:72:B4  2     2462    -65.0   405000 rsn       6858
+VM7074731_EXT          00:A3:5A:80:B2:1A  2     2462    -67.5   130000 rsn       6858
+SKYG82DB               50:70:43:39:B7:EA  2     2462    -72.5   260000 rsn       6858
+SKYXZ4IA               C4:60:26:98:D2:2D  2     2462    -75.0   540000 rsn       6858
+SKYG82DB               50:70:43:39:B7:ED  5     5180    -76.5   1170000 rsn       6861
+BT-R6F868              8C:83:94:9A:4D:AD  2     2412    -76.5   195000 rsn       6857
+EE WiFi                6A:83:94:9A:4D:AE  2     2412    -78.0   195000 open      6857
+VM7074731              CC:58:30:21:72:B5  5     5620    -84.0   540000 rsn       6860
+(10 access points; dBm* derived from NM Strength = 2*(dBm+100))
+
+--- listening 30 s, requesting no scans ---
+--- (one RequestScan at 8 s, to prove the signal wiring) ---
+[   814 ms] 1  Strength=70
+[  7830 ms] RequestScan accepted
+[ 12381 ms] 1  Strength=67 LastSeen=6872
+[ 12381 ms] 76  Strength=50 LastSeen=6871
+[ 12381 ms] 81  LastSeen=6858
+[ 12381 ms] 82  LastSeen=6861
+[ 12381 ms] 83  LastSeen=6857
+[ 12381 ms] 78  Strength=39 LastSeen=6872
+[ 12382 ms] 79  Strength=22 LastSeen=6872
+[ 12382 ms] 80  Strength=19 LastSeen=6872
+[ 12382 ms] 77  Strength=15 LastSeen=6873
+[ 12382 ms] 85  LastSeen=6857
+[ 12813 ms] 1  Strength=70
+[ 24816 ms] 1  Strength=69
+--- done ---
