@@ -117,6 +117,38 @@ int bestChannel(const QList<AccessPoint> &accessPoints, const QList<int> &candid
     return best;
 }
 
+DbmRange rangeFor(const QList<double> &values, double minimumSpan, double highest, double lowest) {
+    DbmRange range;
+    if (values.isEmpty()) {
+        range.top = highest;
+        range.bottom = qMax(lowest, highest - minimumSpan);
+        return range;
+    }
+
+    double minimum = values.first(), maximum = values.first();
+    for (double value : values) {
+        minimum = qMin(minimum, value);
+        maximum = qMax(maximum, value);
+    }
+
+    const double span = qMax(minimumSpan, maximum - minimum + 8.0);
+    const double middle = (minimum + maximum) / 2.0;
+    range.top = middle + span / 2.0;
+    range.bottom = range.top - span;
+
+    // Slide the window back inside the usable band rather than clamping its
+    // edges, which would flatten the data against the edge.
+    if (range.top > highest) {
+        range.top = highest;
+        range.bottom = range.top - span;
+    }
+    if (range.bottom < lowest) {
+        range.bottom = lowest;
+        range.top = range.bottom + span;
+    }
+    return range;
+}
+
 QColor strengthColor(double dbm) {
     if (dbm >= -60.0)
         return QColor(0x7f, 0xd1, 0x8a);   // green: you could use this

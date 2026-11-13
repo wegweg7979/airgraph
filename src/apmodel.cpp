@@ -84,6 +84,14 @@ int ApModel::rowCount(const QModelIndex &parent) const {
     return parent.isValid() ? 0 : int(m_rows.size());
 }
 
+QList<AccessPoint> ApModel::accessPoints() const {
+    QList<AccessPoint> result;
+    result.reserve(m_rows.size());
+    for (const Row &row : m_rows)
+        result.append(row.ap);
+    return result;
+}
+
 int ApModel::rowOfBssid(const QString &bssid) const {
     for (int row = 0; row < m_rows.size(); ++row)
         if (m_rows.at(row).ap.bssid.compare(bssid, Qt::CaseInsensitive) == 0)

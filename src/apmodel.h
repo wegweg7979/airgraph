@@ -41,6 +41,9 @@ public:
 
     int count() const { return int(m_rows.size()); }
 
+    // The snapshot as plain data, for the exporter.
+    QList<AccessPoint> accessPoints() const;
+
     // How many access points are on each band, for the band tabs, so a tab can
     // say "6 GHz 0" instead of looking broken.
     QVariantMap countsByBand() const;

@@ -7,9 +7,9 @@ import Airgraph 1.0
 ApplicationWindow {
     id: win
     width: 1020
-    height: 700
+    height: 780
     minimumWidth: 720
-    minimumHeight: 420
+    minimumHeight: 520
     visible: true
     title: qsTr("Airgraph")
     color: "#0e0e10"
@@ -32,6 +32,7 @@ ApplicationWindow {
     readonly property color dimColor: "#8a8a8a"
 
     property bool helpVisible: false
+    property bool showHistory: true
 
     // One band at a time, the way a Wi-Fi analyzer works: the graph, the
     // congestion strip and the table all show the same one.
@@ -43,6 +44,9 @@ ApplicationWindow {
     Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; onActivated: Qt.quit() }
     Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; onActivated: backend.live = !backend.live }
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; onActivated: backend.rescan() }
+    Shortcut { sequence: "T"; context: Qt.ApplicationShortcut; onActivated: win.showHistory = !win.showHistory }
+    Shortcut { sequence: "E"; context: Qt.ApplicationShortcut; onActivated: backend.exportSessionCsv() }
+    Shortcut { sequence: "Shift+E"; context: Qt.ApplicationShortcut; onActivated: backend.exportSessionJson() }
     Shortcut { sequence: "1"; context: Qt.ApplicationShortcut; onActivated: backend.gigahertz = 2 }
     Shortcut { sequence: "2"; context: Qt.ApplicationShortcut; onActivated: backend.gigahertz = 5 }
     Shortcut { sequence: "3"; context: Qt.ApplicationShortcut; onActivated: backend.gigahertz = 6 }
@@ -171,6 +175,19 @@ ApplicationWindow {
                 radius: theme.radius
             }
 
+            // Signal over time for the selected access point: the raw samples as
+            // dots and the rolling mean as the line.
+            HistoryView {
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 120 : 0
+                visible: win.showHistory
+                history: backend.history
+                model: backend.accessPoints
+                bssid: backend.selectedBssid
+                accent: theme.accent
+                radius: theme.radius
+            }
+
             Text {
                 text: qsTr("%n access point(s)", "", backend.bandAccessPoints.count) + " · " + win.bandLabel
                 color: win.textColor
@@ -207,6 +224,12 @@ ApplicationWindow {
                 model: backend.bandAccessPoints
                 currentIndex: -1
 
+                onCurrentIndexChanged: {
+                    const item = currentItem
+                    if (item && item.model)
+                        backend.selectedBssid = item.model.bssid
+                }
+
                 Text {
                     anchors.centerIn: parent
                     visible: list.count === 0
@@ -224,6 +247,14 @@ ApplicationWindow {
                     height: 24
                     color: model.connected ? Qt.rgba(1, 1, 1, 0.06)
                                            : (index === list.currentIndex ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+
+                    // Whatever the keyboard lands on is what the time graph shows;
+                    // the ListView reports the change, so the delegate itself
+                    // needs no binding that could fire before model is ready.
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: list.currentIndex = index
+                    }
 
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
@@ -262,11 +293,26 @@ ApplicationWindow {
                 }
             }
 
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                text: qsTr("Space live · 1/2/3 band · R rescan · ↑↓ move · ? shortcuts · Q quit · ~ width assumed")
-                color: win.dimColor
-                font.pixelSize: 12
+
+                Text {
+                    Layout.fillWidth: true
+                    text: qsTr("Space live · 1/2/3 band · R rescan · T time graph · E export csv · Shift+E json · ? help · Q quit · ~ width assumed")
+                    color: win.dimColor
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    // Where the export went, so it is never a mystery file.
+                    visible: backend.lastExportPath.length > 0
+                    text: qsTr("exported → %1").arg(backend.lastExportPath)
+                    color: theme.accent
+                    font.pixelSize: 12
+                    elide: Text.ElideLeft
+                    Layout.maximumWidth: win.width * 0.5
+                }
             }
         }
 
@@ -296,7 +342,10 @@ ApplicationWindow {
                             { "keys": "Space", "what": qsTr("live scanning on and off") },
                             { "keys": "1/2/3", "what": qsTr("2.4, 5, or 6 GHz") },
                             { "keys": "R",     "what": qsTr("scan once, now") },
-                            { "keys": "↑ / ↓", "what": qsTr("move down the list") },
+                            { "keys": "T",     "what": qsTr("signal-over-time graph") },
+                            { "keys": "E",     "what": qsTr("export the session as CSV") },
+                            { "keys": "Shift+E", "what": qsTr("export as JSON") },
+                            { "keys": "↑ / ↓", "what": qsTr("move down the list, which picks the time graph") },
                             { "keys": "?",     "what": qsTr("this list") },
                             { "keys": "Q",     "what": qsTr("quit") }
                         ]

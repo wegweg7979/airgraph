@@ -6,10 +6,13 @@ TEMPLATE = app
 
 HEADERS += \
     src/apfiltermodel.h \
+    src/aphistory.h \
     src/apmodel.h \
     src/bandplan.h \
+    src/historyitem.h \
     src/nmwifisource.h \
     src/scanbackend.h \
+    src/sessionexport.h \
     src/spectrum.h \
     src/spectrumitem.h \
     src/theme.h \
@@ -19,10 +22,13 @@ HEADERS += \
 SOURCES += \
     src/main.cpp \
     src/apfiltermodel.cpp \
+    src/aphistory.cpp \
     src/apmodel.cpp \
     src/bandplan.cpp \
+    src/historyitem.cpp \
     src/nmwifisource.cpp \
     src/scanbackend.cpp \
+    src/sessionexport.cpp \
     src/spectrum.cpp \
     src/spectrumitem.cpp \
     src/theme.cpp \

@@ -13,6 +13,7 @@
 
 #include "apmodel.h"
 #include "bandplan.h"
+#include "historyitem.h"
 #include "nmwifisource.h"
 #include "scanbackend.h"
 #include "spectrumitem.h"
@@ -46,6 +47,7 @@ int main(int argc, char *argv[]) {
     bandPlan.load(source.device());
 
     qmlRegisterType<SpectrumItem>("Airgraph", 1, 0, "SpectrumView");
+    qmlRegisterType<HistoryItem>("Airgraph", 1, 0, "HistoryView");
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
@@ -70,16 +72,23 @@ int main(int argc, char *argv[]) {
     const int grabIndex = arguments.indexOf(QStringLiteral("--grab"));
     if (grabIndex > 0 && grabIndex + 1 < arguments.size()) {
         const QString path = arguments.at(grabIndex + 1);
+
+        // --settle N holds the window open for at least N seconds before the
+        // grab, so a screenshot can show history rather than one scan.
+        int settleSeconds = 2;
+        const int settleIndex = arguments.indexOf(QStringLiteral("--settle"));
+        if (settleIndex > 0 && settleIndex + 1 < arguments.size())
+            settleSeconds = arguments.at(settleIndex + 1).toInt();
+
         auto *settle = new QTimer(&app);
         auto waited = QSharedPointer<int>::create(0);
         settle->setInterval(500);
-        QObject::connect(settle, &QTimer::timeout, &app, [&engine, &backend, path, settle, waited]() {
+        QObject::connect(settle, &QTimer::timeout, &app, [&engine, &backend, path, settle, waited, settleSeconds]() {
             *waited += 500;
-            // Two seconds of settled rendering, or 20 s of waiting, whichever
-            // comes first: never a screenshot of a scan still in flight.
+            // Never a screenshot of a scan still in flight.
             if (backend.waitingForScan() && *waited < 20000)
                 return;
-            if (*waited < 2000)
+            if (*waited < settleSeconds * 1000)
                 return;
             settle->stop();
 

@@ -1,12 +1,17 @@
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QtTest>
 
 #include "apfiltermodel.h"
+#include "aphistory.h"
 #include "apmodel.h"
 #include "bandplan.h"
 #include "scanbackend.h"
+#include "sessionexport.h"
 #include "spectrum.h"
 #include "theme.h"
 #include "translator.h"
@@ -447,6 +452,33 @@ private slots:
         QCOMPARE(spectrum::strengthColor(-90.0), QColor(0xe0, 0x7a, 0x7a));
     }
 
+    void axisRangeKeepsTheDataInsideIt()
+    {
+        // A steady signal: the span floor keeps it off the edges.
+        const spectrum::DbmRange steady = spectrum::rangeFor({ -65.0, -65.0, -66.0 });
+        QCOMPARE(steady.top - steady.bottom, 20.0);
+        QVERIFY(steady.top > -66.0 && steady.bottom < -65.0);
+
+        // A swinging signal gets a window that actually contains it. This is
+        // the case that was wrong: a range clamped to the top of the band
+        // clipped every sample against the bottom edge.
+        const spectrum::DbmRange swinging = spectrum::rangeFor({ -53.0, -65.0, -59.0 });
+        QVERIFY(swinging.top > -53.0);
+        QVERIFY(swinging.bottom < -65.0);
+
+        // Never above the usable top, never below the floor.
+        const spectrum::DbmRange strong = spectrum::rangeFor({ -26.0, -28.0 });
+        QVERIFY(strong.top <= -25.0);
+        const spectrum::DbmRange weak = spectrum::rangeFor({ -96.0, -98.0 });
+        QVERIFY(weak.bottom >= -100.0);
+        QVERIFY(weak.top > -98.0);
+
+        // Nothing recorded yet still yields a sane window.
+        const spectrum::DbmRange empty = spectrum::rangeFor({});
+        QCOMPARE(empty.top, -25.0);
+        QCOMPARE(empty.bottom, -45.0);
+    }
+
     // --- the band plan, against real iw output --------------------------------
 
     void bandPlanReadsThePhysChannels()
@@ -577,6 +609,172 @@ private slots:
         backend.setGigahertz(2);
         QCOMPARE(backend.gigahertz(), 2);
         QCOMPARE(backend.bandAccessPoints()->count(), 1);
+    }
+
+    // --- signal over time -----------------------------------------------------
+
+    void historyKeepsASeriesPerBssidWithinItsWindow()
+    {
+        ApHistory history;
+        history.record("AA:AA:AA:AA:AA:01", 0, -60.0);
+        history.record("AA:AA:AA:AA:AA:01", 5, -62.0);
+        history.record("AA:AA:AA:AA:AA:02", 5, -80.0);
+
+        QCOMPARE(history.sampleCount("AA:AA:AA:AA:AA:01"), 2);
+        QCOMPARE(history.sampleCount("AA:AA:AA:AA:AA:02"), 1);
+        QCOMPARE(history.sampleCount("BB:BB:BB:BB:BB:BB"), 0);
+        QCOMPARE(history.minimumDbm("AA:AA:AA:AA:AA:01"), -62.0);
+        QCOMPARE(history.maximumDbm("AA:AA:AA:AA:AA:01"), -60.0);
+
+        // The window view is a slice of the same series.
+        QCOMPARE(history.window("AA:AA:AA:AA:AA:01", 600).size(), 2);
+        QCOMPARE(history.window("AA:AA:AA:AA:AA:01", 3).size(), 1);
+
+        // A sample far past the window takes everything older with it.
+        history.record("AA:AA:AA:AA:AA:01", ApHistory::kWindowSeconds + 10, -55.0);
+        QCOMPARE(history.sampleCount("AA:AA:AA:AA:AA:01"), 1);
+        QCOMPARE(history.samples("AA:AA:AA:AA:AA:01").first().dbm, -55.0);
+    }
+
+    void historySmoothsTheSwing()
+    {
+        // The raw signal moves several dB between samples at a standstill, so
+        // what gets drawn is a rolling mean.
+        const QList<double> raw = { -60.0, -70.0, -60.0, -70.0 };
+        const QList<double> smoothed = ApHistory::movingAverage(raw, 2);
+        QCOMPARE(smoothed.size(), raw.size());
+        QCOMPARE(smoothed.first(), -60.0);
+        QCOMPARE(smoothed.at(1), -65.0);
+        QCOMPARE(smoothed.at(2), -65.0);
+
+        // With one sample there is nothing to average, so the value is itself.
+        QCOMPARE(ApHistory::movingAverage({ -42.0 }, 5).first(), -42.0);
+        QVERIFY(ApHistory::movingAverage({}, 5).isEmpty());
+    }
+
+    void historyForgetsWhatWentAway()
+    {
+        ApHistory history;
+        history.record("AA:AA:AA:AA:AA:01", 0, -60.0);
+        history.record("AA:AA:AA:AA:AA:02", ApHistory::kWindowSeconds + 5, -70.0);
+
+        history.prune(ApHistory::kWindowSeconds + 5);
+        QCOMPARE(history.bssids().size(), 1);
+        QCOMPARE(history.bssids().first(), QStringLiteral("AA:AA:AA:AA:AA:02"));
+
+        history.forget("AA:AA:AA:AA:AA:02");
+        QVERIFY(history.bssids().isEmpty());
+    }
+
+    void backendRecordsASampleOnEveryRefresh()
+    {
+        FakeWifiSource source;
+        source.points = { makeAp("alpha", "AA:AA:AA:AA:AA:01", 2412, 40) };
+        ScanBackend backend(&source);
+
+        QCOMPARE(backend.history()->sampleCount("AA:AA:AA:AA:AA:01"), 1);
+        source.points[0].signal = 55;
+        backend.refreshNow();
+        QCOMPARE(backend.history()->sampleCount("AA:AA:AA:AA:AA:01"), 2);
+        QCOMPARE(backend.history()->samples("AA:AA:AA:AA:AA:01").last().dbm, -72.5);
+    }
+
+    void backendFollowsTheConnectedApUnlessToldOtherwise()
+    {
+        FakeWifiSource source;
+        source.points = { makeAp("far", "AA:AA:AA:AA:AA:01", 2412, 90),
+                          makeAp("mine", "AA:AA:AA:AA:AA:02", 5500, 40, true) };
+        ScanBackend backend(&source);
+        QCOMPARE(backend.selectedBssid(), QStringLiteral("AA:AA:AA:AA:AA:02"));
+
+        // The keyboard can move it anywhere.
+        backend.setSelectedBssid("AA:AA:AA:AA:AA:01");
+        backend.refreshNow();
+        QCOMPARE(backend.selectedBssid(), QStringLiteral("AA:AA:AA:AA:AA:01"));
+    }
+
+    // --- the export -----------------------------------------------------------
+
+    void csvIsLongFormatAndQuotesWhatItMust()
+    {
+        AccessPoint awkward = makeAp(QStringLiteral("a,b\"c"), "AA:AA:AA:AA:AA:01", 2412, 70);
+        ApHistory history;
+        history.record("AA:AA:AA:AA:AA:01", 3, -65.0);
+        history.record("AA:AA:AA:AA:AA:01", 6, -67.0);
+
+        const QString csv = sessionexport::toCsv({ awkward }, history, QStringLiteral("fake0"));
+        const QStringList lines = csv.split(QLatin1Char('\n'));
+        QVERIFY(lines.first().startsWith(QStringLiteral("# airgraph session")));
+        QVERIFY(lines.at(1).startsWith(QStringLiteral("bssid,ssid,band,")));
+
+        // One row per sample, the access point repeated so a row stands alone.
+        const QStringList rows = csv.split(QLatin1Char('\n'));
+        QCOMPARE(rows.size(), 2 + 2 + 1);   // 2 header lines, 2 sample rows, trailing newline
+        QVERIFY(rows.at(2).contains(QStringLiteral("\"a,b\"\"c\"")));
+        QVERIFY(rows.at(2).contains(QStringLiteral(",3,-65.00")));
+        QVERIFY(rows.at(3).contains(QStringLiteral(",6,-67.00")));
+        // The width column says whether it was assumed.
+        QVERIFY(rows.at(2).contains(QStringLiteral(",20,yes,")));
+    }
+
+    void jsonCarriesTheSnapshotAndTheSeries()
+    {
+        AccessPoint mine = makeAp("mine", "AA:AA:AA:AA:AA:01", 5500, 70, true);
+        mine.widthMhz = 40;
+        ApHistory history;
+        history.record("AA:AA:AA:AA:AA:01", 5, -65.0);
+
+        const QString json = sessionexport::toJson({ mine }, history, QStringLiteral("fake0"));
+        const QJsonDocument document = QJsonDocument::fromJson(json.toUtf8());
+        QVERIFY(document.isObject());
+
+        const QJsonObject root = document.object();
+        QCOMPARE(root.value("device").toString(), QStringLiteral("fake0"));
+
+        const QJsonArray points = root.value("access_points").toArray();
+        QCOMPARE(points.size(), 1);
+        const QJsonObject point = points.first().toObject();
+        QCOMPARE(point.value("band_ghz").toInt(), 5);
+        QCOMPARE(point.value("channel").toInt(), 100);
+        QCOMPARE(point.value("width_mhz").toInt(), 40);
+        QCOMPARE(point.value("width_assumed").toBool(), false);
+        QCOMPARE(point.value("dbm").toDouble(), -65.0);
+        QCOMPARE(point.value("connected").toBool(), true);
+        QCOMPARE(point.value("samples").toArray().size(), 1);
+    }
+
+    void backendWritesBothFormats()
+    {
+        QTemporaryDir dir;
+        FakeWifiSource source;
+        source.points = { makeAp("alpha", "AA:AA:AA:AA:AA:01", 2412, 70) };
+        ScanBackend backend(&source);
+        backend.setExportDirectory(dir.path());
+
+        const QString csv = backend.exportSessionCsv();
+        QVERIFY(csv.startsWith(dir.path()));
+        QVERIFY(QFile::exists(csv));
+        QCOMPARE(backend.lastExportPath(), csv);
+
+        // Atomic write means a real file with the real content, not a stub.
+        QFile file(csv);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(QString::fromUtf8(file.readAll()).contains(QStringLiteral("AA:AA:AA:AA:AA:01")));
+
+        const QString json = backend.exportSessionJson();
+        QVERIFY(QFile::exists(json));
+        QFile jsonFile(json);
+        QVERIFY(jsonFile.open(QIODevice::ReadOnly));
+        const QJsonDocument document = QJsonDocument::fromJson(jsonFile.readAll());
+        QVERIFY(!document.isNull());
+        QCOMPARE(document.object().value("access_points").toArray().size(), 1);
+    }
+
+    void exportNamesAreSortedAndUnique()
+    {
+        const QString first = sessionexport::suggestedFileName(QStringLiteral("csv"));
+        QVERIFY(first.startsWith(QStringLiteral("airgraph-")));
+        QVERIFY(first.endsWith(QStringLiteral(".csv")));
     }
 
 private:

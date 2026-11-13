@@ -54,10 +54,11 @@ NetworkManager over QtDBus, `Device.Wireless.RequestScan` +
    The axis is read from `iw phy` so it reflects this radio.
 2. **AP table** (done, M1) — SSID / BSSID / band / chan / width / dBm / % /
    security / max rate / age. Deduped by BSSID and filtered to the shown band.
-3. **Live mode and history** (M3) — the 10 s cadence and the signal appear in
-   M1; the rolling sparkline per BSSID and CSV/JSON export are M3. The raw
-   signal swings several dB while stationary, so the history view needs
-   smoothing.
+3. **Live mode and history** (done, M3) — a sample per refresh per BSSID in a
+   rolling ten-minute window, drawn as a sparkline with the raw dots and the
+   rolling mean, plus CSV/JSON export of the session. The raw signal swings
+   several dB while stationary, which is why the line is smoothed and the spread
+   is stated in dB.
 
 The 6 GHz band is a first-class view that is allowed to be empty ("no 6 GHz APs
 heard"), with the phy's capability shown as a separate fact.
@@ -90,7 +91,7 @@ Agent CLI (Hype's pattern): `airgraph scan --json`, `airgraph export --csv`,
 - **M0** spikes 001–003 (done, see `spikes/`).
 - **M1** skeleton: build/run loop, theme, window, live AP table from a real scan (done).
 - **M2** spectrum graph + congestion strip + best-channel recommendation (done).
-- **M3** live mode history: per-BSSID ring buffer and sparklines, CSV/JSON export.
+- **M3** live mode history: per-BSSID ring buffer and sparklines, CSV/JSON export (done).
 - **M4** agent CLI, offscreen tests, translations.
 - **M5** RPM spec + COPR + image handoff (user builds/pushes), README screenshot.
 

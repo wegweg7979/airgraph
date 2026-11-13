@@ -48,6 +48,18 @@ int starsFor(double score);
 // that do not overlap each other.
 int bestChannel(const QList<AccessPoint> &accessPoints, const QList<int> &candidates);
 
+// The dBm window an axis should show for a set of values: centred on the data,
+// at least `minimumSpan` tall so a steady signal does not look like a mountain
+// range, and never outside the usable range. Getting this wrong clips the data
+// against an edge and still looks like a plausible graph.
+struct DbmRange {
+    double top = -30.0;
+    double bottom = -100.0;
+};
+
+DbmRange rangeFor(const QList<double> &values, double minimumSpan = 20.0,
+                  double highest = -25.0, double lowest = -100.0);
+
 // Green / amber / red, the way a signal graph has always read.
 QColor strengthColor(double dbm);
 

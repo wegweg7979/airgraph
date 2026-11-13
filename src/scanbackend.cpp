@@ -1,10 +1,23 @@
 #include "scanbackend.h"
 
+#include "sessionexport.h"
 #include "wifisource.h"
+
+#include <QDir>
+#include <QFile>
+#include <QSaveFile>
+#include <QStandardPaths>
 
 ScanBackend::ScanBackend(WifiSource *source, QObject *parent)
     : QObject(parent), m_source(source) {
     m_bandAccessPoints.setSourceModel(&m_accessPoints);
+    m_sessionClock.start();
+
+    // Exports land in Documents, or the home directory when there is none.
+    m_exportDirectory = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (m_exportDirectory.isEmpty())
+        m_exportDirectory = QDir::homePath();
+
     connect(m_source, &WifiSource::changed, this, &ScanBackend::refreshNow);
 
     // Signals say "something moved"; this timer says "and also look every few
@@ -85,7 +98,17 @@ void ScanBackend::refreshNow() {
     if (!m_source->available())
         return;
 
+    const qint64 seconds = m_sessionClock.elapsed() / 1000;
     m_accessPoints.apply(m_source->accessPoints());
+
+    // Every refresh is a sample, whether or not the value moved: a flat line
+    // means "it stayed there", which is a fact worth seeing.
+    for (int row = 0; row < m_accessPoints.rowCount(); ++row) {
+        const QModelIndex index = m_accessPoints.index(row, 0);
+        m_history.record(index.data(ApModel::BssidRole).toString(), seconds,
+                         index.data(ApModel::DbmRole).toDouble());
+    }
+    m_history.prune(seconds);
 
     // First read with an association: show that band. After that the user's
     // choice stands.
@@ -95,9 +118,22 @@ void ScanBackend::refreshNow() {
             if (!index.data(ApModel::ConnectedRole).toBool())
                 continue;
             setGigahertz(index.data(ApModel::BandRole).toInt());
+            setSelectedBssid(index.data(ApModel::BssidRole).toString());
             break;
         }
         m_bandChosen = true;
+    }
+
+    // With nothing chosen, the time graph follows the AP you are on, which is
+    // the one whose behaviour matters most.
+    if (m_selectedBssid.isEmpty()) {
+        for (int row = 0; row < m_accessPoints.rowCount(); ++row) {
+            const QModelIndex index = m_accessPoints.index(row, 0);
+            if (index.data(ApModel::ConnectedRole).toBool()) {
+                setSelectedBssid(index.data(ApModel::BssidRole).toString());
+                break;
+            }
+        }
     }
 
     // A scan that really ran resets the age; one that was coalesced away never
@@ -112,6 +148,48 @@ void ScanBackend::refreshNow() {
             emit waitingForScanChanged();
         }
     }
+}
+
+void ScanBackend::setSelectedBssid(const QString &bssid) {
+    if (m_selectedBssid == bssid)
+        return;
+    m_selectedBssid = bssid;
+    emit selectedBssidChanged();
+}
+
+// Written beside the target and renamed, so an interrupted export never leaves a
+// half file where a real one used to be. Returns the path, or empty on failure.
+static QString writeSession(const QString &directory, const QString &fileName, const QString &contents) {
+    QDir().mkpath(directory);
+    const QString path = QDir(directory).filePath(fileName);
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return QString();
+    if (file.write(contents.toUtf8()) < 0)
+        return QString();
+    if (!file.commit())
+        return QString();
+    return path;
+}
+
+QString ScanBackend::exportSessionCsv() {
+    const QString path = writeSession(m_exportDirectory, sessionexport::suggestedFileName(QStringLiteral("csv")),
+                                      sessionexport::toCsv(m_accessPoints.accessPoints(), m_history, device()));
+    if (path != m_lastExportPath) {
+        m_lastExportPath = path;
+        emit lastExportPathChanged();
+    }
+    return path;
+}
+
+QString ScanBackend::exportSessionJson() {
+    const QString path = writeSession(m_exportDirectory, sessionexport::suggestedFileName(QStringLiteral("json")),
+                                      sessionexport::toJson(m_accessPoints.accessPoints(), m_history, device()));
+    if (path != m_lastExportPath) {
+        m_lastExportPath = path;
+        emit lastExportPathChanged();
+    }
+    return path;
 }
 
 void ScanBackend::tick() {

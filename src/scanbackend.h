@@ -3,8 +3,10 @@
 #include <QObject>
 #include <QString>
 #include <QTimer>
+#include <QElapsedTimer>
 
 #include "apfiltermodel.h"
+#include "aphistory.h"
 #include "apmodel.h"
 
 class WifiSource;
@@ -28,6 +30,10 @@ class ScanBackend : public QObject {
     Q_PROPERTY(QString scanError READ scanError NOTIFY scanErrorChanged)
     Q_PROPERTY(int scanIntervalSeconds READ scanIntervalSeconds CONSTANT)
     Q_PROPERTY(int gigahertz READ gigahertz WRITE setGigahertz NOTIFY gigahertzChanged)
+    Q_PROPERTY(QString selectedBssid READ selectedBssid WRITE setSelectedBssid NOTIFY selectedBssidChanged)
+    Q_PROPERTY(ApHistory *history READ history CONSTANT)
+    Q_PROPERTY(QString lastExportPath READ lastExportPath NOTIFY lastExportPathChanged)
+    Q_PROPERTY(QString exportDirectory READ exportDirectory CONSTANT)
     Q_PROPERTY(ApModel *accessPoints READ accessPoints CONSTANT)
     Q_PROPERTY(ApFilterModel *bandAccessPoints READ bandAccessPoints CONSTANT)
 
@@ -47,8 +53,19 @@ public:
     void setGigahertz(int gigahertz);
     ApModel *accessPoints() { return &m_accessPoints; }
     ApFilterModel *bandAccessPoints() { return &m_bandAccessPoints; }
+    ApHistory *history() { return &m_history; }
+    QString selectedBssid() const { return m_selectedBssid; }
+    void setSelectedBssid(const QString &bssid);
+    QString lastExportPath() const { return m_lastExportPath; }
+    QString exportDirectory() const { return m_exportDirectory; }
+
+    // Tests point this at a temporary directory; the app uses the user's
+    // Documents folder, and never overwrites an earlier run.
+    void setExportDirectory(const QString &directory) { m_exportDirectory = directory; }
 
     Q_INVOKABLE void rescan();
+    Q_INVOKABLE QString exportSessionCsv();
+    Q_INVOKABLE QString exportSessionJson();
 
     // Re-read what NetworkManager has and fold it into the model. Public so the
     // tests can drive it without timers.
@@ -61,6 +78,8 @@ signals:
     void secondsSinceScanChanged();
     void scanErrorChanged();
     void gigahertzChanged();
+    void selectedBssidChanged();
+    void lastExportPathChanged();
 
 private:
     void tick();
@@ -72,6 +91,8 @@ private:
     WifiSource *m_source = nullptr;
     ApModel m_accessPoints;
     ApFilterModel m_bandAccessPoints;
+    ApHistory m_history;
+    QElapsedTimer m_sessionClock;
     QTimer m_refresh;
     QTimer m_cadence;
     QTimer m_clock;
@@ -81,4 +102,7 @@ private:
     int m_secondsSinceScan = 0;
     int m_scanIntervalSeconds = 10;
     QString m_scanError;
+    QString m_selectedBssid;
+    QString m_lastExportPath;
+    QString m_exportDirectory;
 };
