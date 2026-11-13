@@ -100,7 +100,28 @@ bin/install          # ~/.local/bin/airgraph, plus the launcher entry and icon
 ```
 
 `/usr` is read-only on this immutable host, so the install goes to `~/.local`
-and touches nothing else. The RPM (M5) is the system-wide path.
+and touches nothing else. The RPM is the system-wide path.
+
+## Fedora package (COPR)
+
+```sh
+sudo dnf copr enable wegweg7979/airgraph
+sudo dnf install airgraph
+```
+
+`rpm/airgraph.spec` builds the binary, the launcher entry and the icon out of the
+release tarball, and COPR builds that spec from the git tag. Releasing:
+
+```sh
+# bump Version: in rpm/airgraph.spec, commit, then:
+git tag v0.1.0 && git push origin v0.1.0
+bin/spec-sources     # fetches that tag's tarball, rewrites rpm/airgraph.spec.sources
+# commit the refreshed hash
+```
+
+The hash cannot be taken before the tag exists, which is why it is its own
+commit. `%check` runs `bin/test` offscreen in the build, so a release that fails
+its own tests never publishes.
 
 ## What the numbers mean
 
