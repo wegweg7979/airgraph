@@ -3,8 +3,11 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "apfiltermodel.h"
 #include "apmodel.h"
+#include "bandplan.h"
 #include "scanbackend.h"
+#include "spectrum.h"
 #include "theme.h"
 #include "translator.h"
 #include "wifisource.h"
@@ -350,6 +353,230 @@ private slots:
         QCOMPARE(translator.language(), QStringLiteral("pt-BR"));
         QCOMPARE(translator.translate("Main", "Scanning…"), QStringLiteral("Procurando…"));
         QVERIFY(translator.translate("Main", "Quit").isNull());
+    }
+
+    // --- the spectrum arithmetic ----------------------------------------------
+
+    void bandForCarriesTheRadiosChannels()
+    {
+        const spectrum::Band band = spectrum::bandFor(2, BandPlan::standard(2));
+        QCOMPARE(band.label(), QStringLiteral("2.4 GHz"));
+        QCOMPARE(band.tickFrequencies.size(), 14);
+        // A little air either side, so the end curves are not clipped.
+        QVERIFY(band.minFrequency < 2412);
+        QVERIFY(band.maxFrequency > 2484);
+        QCOMPARE(spectrum::bandFor(6, BandPlan::standard(6)).label(), QStringLiteral("6 GHz"));
+    }
+
+    void frequencyAxisIsLinearInMhz()
+    {
+        const spectrum::Band band = spectrum::bandFor(2, BandPlan::standard(2));
+        const QRectF plot(0, 0, 100, 50);
+
+        QCOMPARE(spectrum::frequencyToX(band.minFrequency, band, plot), 0.0);
+        QCOMPARE(spectrum::frequencyToX(band.maxFrequency, band, plot), 100.0);
+        // 2412 and 2437 are five channels apart, so they must land in order and
+        // stay inside the plot.
+        const double first = spectrum::frequencyToX(2412, band, plot);
+        const double sixth = spectrum::frequencyToX(2437, band, plot);
+        QVERIFY(sixth > first);
+        QVERIFY(first > plot.left() && sixth < plot.right());
+    }
+
+    void dbmAxisGrowsUpward()
+    {
+        const QRectF plot(0, 0, 100, 200);
+        QCOMPARE(spectrum::dbmToY(-20.0, plot), 0.0);
+        QCOMPARE(spectrum::dbmToY(-100.0, plot), 200.0);
+        QVERIFY(spectrum::dbmToY(-60.0, plot) < spectrum::dbmToY(-80.0, plot));
+        // Below the floor is clamped, not drawn off the bottom.
+        QCOMPARE(spectrum::dbmToY(-120.0, plot), 200.0);
+    }
+
+    void bellIsFlatOnTopAndFloorAtTheEdges()
+    {
+        const spectrum::Band band = spectrum::bandFor(5, BandPlan::standard(5));
+        const QRectF plot(0, 0, 400, 200);
+        const QList<QPointF> narrow = spectrum::bellCurve(5500, 20, -60.0, band, plot);
+        const QList<QPointF> wide = spectrum::bellCurve(5500, 40, -60.0, band, plot);
+
+        QVERIFY(narrow.size() > 8);
+        // Wider channel, wider bell, same peak height.
+        QVERIFY(wide.last().x() - wide.first().x() > narrow.last().x() - narrow.first().x());
+        const double peak = spectrum::dbmToY(-60.0, plot);
+        QCOMPARE(wide.at(wide.size() / 2).y(), peak);
+        // The ends have fallen to the floor.
+        QCOMPARE(wide.first().y(), spectrum::dbmToY(-80.0, plot));
+        QCOMPARE(narrow.first().y(), spectrum::dbmToY(-80.0, plot));
+    }
+
+    void congestionCountsOverlappingStrength()
+    {
+        const QList<AccessPoint> empty;
+        QCOMPARE(spectrum::channelScore(empty, 2412), 0.0);
+        QCOMPARE(spectrum::starsFor(0.0), 5);
+
+        const QList<AccessPoint> one = { makeAp("a", "AA:AA:AA:AA:AA:01", 2412, 70) };
+        const double single = spectrum::channelScore(one, 2412);
+        QVERIFY(single > 0.0 && single < 1.0);
+
+        // Two strong APs on the same channel are worse than one.
+        QList<AccessPoint> two = one;
+        two.append(makeAp("b", "AA:AA:AA:AA:AA:02", 2412, 100));
+        QVERIFY(spectrum::channelScore(two, 2412) > single);
+
+        // A channel two channels away is clear of it.
+        QCOMPARE(spectrum::channelScore(one, 2437), 0.0);
+        QCOMPARE(spectrum::starsFor(2.0), 1);
+    }
+
+    void bestChannelAvoidsTheCrowd()
+    {
+        const int one = 2412, six = 2437, eleven = 2462;
+        const QList<AccessPoint> busy = { makeAp("a", "AA:AA:AA:AA:AA:01", 2437, 100),
+                                          makeAp("b", "AA:AA:AA:AA:AA:02", 2437, 90) };
+        QCOMPARE(spectrum::bestChannel(busy, { one, six, eleven }), one);
+
+        QCOMPARE(spectrum::bestChannel({}, { one, six, eleven }), one);
+    }
+
+    void strengthColorIsGreenAmberRed()
+    {
+        QCOMPARE(spectrum::strengthColor(-50.0), QColor(0x7f, 0xd1, 0x8a));
+        QCOMPARE(spectrum::strengthColor(-70.0), QColor(0xe6, 0xc0, 0x6a));
+        QCOMPARE(spectrum::strengthColor(-90.0), QColor(0xe0, 0x7a, 0x7a));
+    }
+
+    // --- the band plan, against real iw output --------------------------------
+
+    void bandPlanReadsThePhysChannels()
+    {
+        // Trimmed from `iw phy phy0 info` on this machine.
+        const QString phy = QStringLiteral(
+            "Wiphy phy0\n"
+            "\tBand 1:\n"
+            "\t\tFrequencies:\n"
+            "\t\t\t* 2412.0 MHz [1] (22.0 dBm)\n"
+            "\t\t\t* 2417.0 MHz [2] (22.0 dBm)\n"
+            "\t\t\t* 2484.0 MHz [14] (22.0 dBm)\n"
+            "\tBand 2:\n"
+            "\t\t\t* 5180.0 MHz [36] (22.0 dBm)\n"
+            "\tBand 4:\n"
+            "\t\t\t* 5955.0 MHz [1] (22.0 dBm) (no IR)\n"
+            "\t\t\t* 5975.0 MHz [5] (22.0 dBm) (no IR)\n");
+
+        const QHash<int, QList<int> > parsed = BandPlan::parse(phy);
+        QCOMPARE(parsed.value(2), QList<int>({ 2412, 2417, 2484 }));
+        QCOMPARE(parsed.value(5), QList<int>({ 5180 }));
+        QCOMPARE(parsed.value(6), QList<int>({ 5955, 5975 }));
+    }
+
+    void bandPlanFallsBackToTheStandardTable()
+    {
+        BandPlan plan;
+        QCOMPARE(plan.source(), QStringLiteral("standard channel table"));
+        QCOMPARE(plan.frequencies(2).size(), 14);
+        QVERIFY(plan.frequencies(5).contains(5180));
+        QVERIFY(plan.frequencies(5).contains(5500));
+        QVERIFY(plan.frequencies(6).contains(5955));
+        QVERIFY(plan.advertised(6));
+
+        // An empty parse must not shrink the plan to nothing.
+        QVERIFY(BandPlan::parse(QStringLiteral("garbage")).isEmpty());
+    }
+
+    void linkWidthComesFromTheDriver()
+    {
+        // `iw dev wlp4s0 info` on this machine, verbatim.
+        const QString info = QStringLiteral(
+            "Interface wlp4s0\n"
+            "\tifindex 4\n"
+            "\twdev 0x1\n"
+            "\taddr 0e:7b:d5:71:f7:9c\n"
+            "\tssid hurunagus\n"
+            "\ttype managed\n"
+            "\twiphy 0\n"
+            "\tchannel 100 (5500 MHz), width: 40 MHz, center1: 5510 MHz\n"
+            "\ttxpower 22.00 dBm\n");
+
+        QCOMPARE(BandPlan::parseLinkWidth(info), 40);
+        QCOMPARE(BandPlan::parseLinkFrequency(info), 5500);
+        QCOMPARE(BandPlan::parseLinkCenterFrequency(info), 5510);
+        QCOMPARE(BandPlan::parseLinkSsid(info), QStringLiteral("hurunagus"));
+        QCOMPARE(BandPlan::parseLinkWidth(QStringLiteral("no link here")), 0);
+    }
+
+    void widthIsMeasuredOrAssumed()
+    {
+        AccessPoint unknown = makeAp("a", "AA:AA:AA:AA:AA:01", 5500, 70);
+        QCOMPARE(widthOf(unknown), 20);
+        QVERIFY(widthIsAssumed(unknown));
+
+        AccessPoint measured = unknown;
+        measured.widthMhz = 40;
+        QCOMPARE(widthOf(measured), 40);
+        QVERIFY(!widthIsAssumed(measured));
+    }
+
+    void modelWidthRoleFollowsTheMeasurement()
+    {
+        ApModel model;
+        AccessPoint measured = makeAp("mine", "AA:AA:AA:AA:AA:01", 5500, 70, true);
+        measured.widthMhz = 40;
+        model.apply({ measured, makeAp("other", "AA:AA:AA:AA:AA:02", 5500, 60) });
+
+        QCOMPARE(model.data(model.index(0, 0), ApModel::WidthRole).toInt(), 40);
+        QVERIFY(!model.data(model.index(0, 0), ApModel::WidthAssumedRole).toBool());
+        QCOMPARE(model.data(model.index(1, 0), ApModel::WidthRole).toInt(), 20);
+        QVERIFY(model.data(model.index(1, 0), ApModel::WidthAssumedRole).toBool());
+    }
+
+    // --- bands in the UI: counts and the table filter -------------------------
+
+    void countsPerBand()
+    {
+        ApModel model;
+        model.apply({ makeAp("a", "AA:AA:AA:AA:AA:01", 2412, 70),
+                      makeAp("b", "AA:AA:AA:AA:AA:02", 2462, 60),
+                      makeAp("c", "AA:AA:AA:AA:AA:03", 5180, 80) });
+        const QVariantMap counts = model.countsByBand();
+        QCOMPARE(counts.value("2").toInt(), 2);
+        QCOMPARE(counts.value("5").toInt(), 1);
+        QCOMPARE(counts.value("6").toInt(), 0);
+    }
+
+    void tableShowsOneBandAtATime()
+    {
+        ApModel model;
+        model.apply({ makeAp("a", "AA:AA:AA:AA:AA:01", 2412, 70),
+                      makeAp("b", "AA:AA:AA:AA:AA:02", 2462, 60),
+                      makeAp("c", "AA:AA:AA:AA:AA:03", 5180, 80) });
+
+        ApFilterModel filtered;
+        filtered.setSourceModel(&model);
+        QCOMPARE(filtered.count(), 2);          // 2.4 GHz by default
+
+        filtered.setGigahertz(5);
+        QCOMPARE(filtered.count(), 1);
+        QCOMPARE(filtered.index(0, 0).data(ApModel::SsidRole).toString(), QStringLiteral("c"));
+
+        filtered.setGigahertz(6);
+        QCOMPARE(filtered.count(), 0);
+    }
+
+    void backendOpensOnTheBandInUse()
+    {
+        FakeWifiSource source;
+        source.points = { makeAp("2g", "AA:AA:AA:AA:AA:01", 2412, 70),
+                          makeAp("5g", "AA:AA:AA:AA:AA:02", 5500, 60, true) };
+        ScanBackend backend(&source);
+        // Associated on 5 GHz, so that is the band that opens.
+        QCOMPARE(backend.gigahertz(), 5);
+        QCOMPARE(backend.bandAccessPoints()->count(), 1);
+
+        backend.setGigahertz(2);
+        QCOMPARE(backend.gigahertz(), 2);
+        QCOMPARE(backend.bandAccessPoints()->count(), 1);
     }
 
 private:

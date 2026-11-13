@@ -3,6 +3,7 @@
 #include <QDateTime>
 #include <QModelIndexList>
 #include <QStringList>
+#include <QVariantMap>
 
 #include <algorithm>
 
@@ -44,6 +45,15 @@ int assumedWidthOf(int frequency) {
     return 20;
 }
 
+// The width to draw and to show: whatever was measured, or the assumption.
+int widthOf(const AccessPoint &ap) {
+    return ap.widthMhz > 0 ? ap.widthMhz : assumedWidthOf(ap.frequency);
+}
+
+bool widthIsAssumed(const AccessPoint &ap) {
+    return ap.widthMhz <= 0;
+}
+
 QString securityOf(uint flags, uint wpaFlags, uint rsnFlags) {
     constexpr uint kPrivacy = 0x1;
     if (!(flags & kPrivacy))
@@ -58,6 +68,17 @@ QString securityOf(uint flags, uint wpaFlags, uint rsnFlags) {
 }
 
 ApModel::ApModel(QObject *parent) : QAbstractListModel(parent) {}
+
+QVariantMap ApModel::countsByBand() const {
+    QVariantMap counts;
+    for (int gigahertz : { 2, 5, 6 })
+        counts.insert(QString::number(gigahertz), 0);
+    for (const Row &row : m_rows) {
+        const QString key = QString::number(bandOf(row.ap.frequency));
+        counts.insert(key, counts.value(key).toInt() + 1);
+    }
+    return counts;
+}
 
 int ApModel::rowCount(const QModelIndex &parent) const {
     return parent.isValid() ? 0 : int(m_rows.size());
@@ -82,7 +103,8 @@ QVariant ApModel::data(const QModelIndex &index, int role) const {
     case BandRole:      return bandOf(row.ap.frequency);
     case ChannelRole:   return channelOf(row.ap.frequency);
     case FrequencyRole: return row.ap.frequency;
-    case WidthRole:     return assumedWidthOf(row.ap.frequency);
+    case WidthRole:     return widthOf(row.ap);
+    case WidthAssumedRole: return widthIsAssumed(row.ap);
     case DbmRole:       return dbmOf(row.ap.signal);
     case SignalRole:    return row.ap.signal;
     case SecurityRole:  return row.ap.security;
@@ -102,6 +124,7 @@ QHash<int, QByteArray> ApModel::roleNames() const {
         { ChannelRole, "channel" },
         { FrequencyRole, "frequency" },
         { WidthRole, "width" },
+        { WidthAssumedRole, "widthAssumed" },
         { DbmRole, "dbm" },
         { SignalRole, "signal" },
         { SecurityRole, "security" },

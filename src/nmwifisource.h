@@ -39,6 +39,8 @@ private:
     QString m_device;
     QString m_problem;
     QString m_connectedBssid;
+    QString m_widthBssid;        // whose link width m_linkWidthMhz describes
+    int m_linkWidthMhz = 0;
     bool m_available = false;
     bool m_scanCompleted = false;
     qlonglong m_scanStamp = 0;

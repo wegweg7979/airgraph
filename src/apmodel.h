@@ -12,6 +12,7 @@
 class ApModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+    Q_PROPERTY(QVariantMap countsByBand READ countsByBand NOTIFY countChanged)
 
 public:
     enum Role {
@@ -21,6 +22,7 @@ public:
         ChannelRole,
         FrequencyRole,
         WidthRole,
+        WidthAssumedRole,
         DbmRole,
         SignalRole,
         SecurityRole,
@@ -38,6 +40,10 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     int count() const { return int(m_rows.size()); }
+
+    // How many access points are on each band, for the band tabs, so a tab can
+    // say "6 GHz 0" instead of looking broken.
+    QVariantMap countsByBand() const;
 
     // Merge a fresh read: new BSSIDs are inserted, known ones updated in place,
     // vanished ones removed, first-seen times kept. Strongest first, and the AP

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import Airgraph 1.0
 
 ApplicationWindow {
     id: win
@@ -32,11 +33,19 @@ ApplicationWindow {
 
     property bool helpVisible: false
 
+    // One band at a time, the way a Wi-Fi analyzer works: the graph, the
+    // congestion strip and the table all show the same one.
+    readonly property string bandLabel: backend.gigahertz === 2 ? qsTr("2.4 GHz")
+                                       : backend.gigahertz === 5 ? qsTr("5 GHz") : qsTr("6 GHz")
+
     Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; onActivated: win.helpVisible = !win.helpVisible }
     Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; onActivated: win.helpVisible = false }
     Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; onActivated: Qt.quit() }
     Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; onActivated: backend.live = !backend.live }
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; onActivated: backend.rescan() }
+    Shortcut { sequence: "1"; context: Qt.ApplicationShortcut; onActivated: backend.gigahertz = 2 }
+    Shortcut { sequence: "2"; context: Qt.ApplicationShortcut; onActivated: backend.gigahertz = 5 }
+    Shortcut { sequence: "3"; context: Qt.ApplicationShortcut; onActivated: backend.gigahertz = 6 }
     Shortcut { sequence: "Down"; context: Qt.ApplicationShortcut; onActivated: list.incrementCurrentIndex() }
     Shortcut { sequence: "Up"; context: Qt.ApplicationShortcut; onActivated: list.decrementCurrentIndex() }
 
@@ -114,8 +123,56 @@ ApplicationWindow {
                 font.pixelSize: 13
             }
 
+            // Band tabs, with the count on each so an empty band reads as empty
+            // rather than broken.
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Repeater {
+                    model: [ { "gigahertz": 2, "label": qsTr("2.4 GHz") },
+                             { "gigahertz": 5, "label": qsTr("5 GHz") },
+                             { "gigahertz": 6, "label": qsTr("6 GHz") } ]
+
+                    delegate: Rectangle {
+                        required property var model
+                        implicitWidth: tabText.implicitWidth + 28
+                        implicitHeight: 26
+                        radius: Math.min(6, theme.radius)
+                        color: backend.gigahertz === model.gigahertz ? theme.accent : "#1c1c21"
+
+                        Text {
+                            id: tabText
+                            anchors.centerIn: parent
+                            text: model.label + "  " + (backend.accessPoints.countsByBand[String(model.gigahertz)] || 0)
+                            color: backend.gigahertz === model.gigahertz ? theme.accentForeground : win.dimColor
+                            font.pixelSize: 12
+                            font.bold: backend.gigahertz === model.gigahertz
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: backend.gigahertz = model.gigahertz
+                        }
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+
+            // The graph: one bell per access point across a linear frequency
+            // axis, with the per-channel congestion strip underneath.
+            SpectrumView {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 300
+                model: backend.accessPoints
+                bandPlan: bandPlan
+                gigahertz: backend.gigahertz
+                accent: theme.accent
+                radius: theme.radius
+            }
+
             Text {
-                text: qsTr("%n access point(s)", "", backend.accessPoints.count)
+                text: qsTr("%n access point(s)", "", backend.bandAccessPoints.count) + " · " + win.bandLabel
                 color: win.textColor
                 font.pixelSize: 13
                 font.bold: true
@@ -147,7 +204,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                model: backend.accessPoints
+                model: backend.bandAccessPoints
                 currentIndex: -1
 
                 Text {
@@ -183,8 +240,9 @@ ApplicationWindow {
                         Text { text: model.bssid; color: win.dimColor; font.pixelSize: 13; width: win.colBssid }
                         Text { text: model.frequency; color: win.textColor; font.pixelSize: 13; width: win.colFrequency }
                         Text {
-                            // The width is an assumption, so it is shown as part of the channel.
-                            text: model.channel + " · " + model.width
+                            // The width is measured for your own link and
+                            // assumed (marked ~) for everyone else's.
+                            text: model.channel + " · " + model.width + (model.widthAssumed ? "~" : "")
                             color: win.textColor; font.pixelSize: 13; width: win.colChannel
                         }
                         Text {
@@ -206,7 +264,7 @@ ApplicationWindow {
 
             Text {
                 Layout.fillWidth: true
-                text: qsTr("Space live · R rescan · ↑↓ move · ? shortcuts · Q quit")
+                text: qsTr("Space live · 1/2/3 band · R rescan · ↑↓ move · ? shortcuts · Q quit · ~ width assumed")
                 color: win.dimColor
                 font.pixelSize: 12
             }
@@ -236,6 +294,7 @@ ApplicationWindow {
                     Repeater {
                         model: [
                             { "keys": "Space", "what": qsTr("live scanning on and off") },
+                            { "keys": "1/2/3", "what": qsTr("2.4, 5, or 6 GHz") },
                             { "keys": "R",     "what": qsTr("scan once, now") },
                             { "keys": "↑ / ↓", "what": qsTr("move down the list") },
                             { "keys": "?",     "what": qsTr("this list") },

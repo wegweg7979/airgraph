@@ -4,6 +4,7 @@
 
 ScanBackend::ScanBackend(WifiSource *source, QObject *parent)
     : QObject(parent), m_source(source) {
+    m_bandAccessPoints.setSourceModel(&m_accessPoints);
     connect(m_source, &WifiSource::changed, this, &ScanBackend::refreshNow);
 
     // Signals say "something moved"; this timer says "and also look every few
@@ -30,6 +31,17 @@ ScanBackend::ScanBackend(WifiSource *source, QObject *parent)
 QString ScanBackend::device() const { return m_source->device(); }
 QString ScanBackend::problem() const { return m_source->problem(); }
 bool ScanBackend::available() const { return m_source->available(); }
+
+// The band the graph and the table are showing. It opens on the band the
+// machine is actually associated on — the one the user cares about first —
+// and then stays wherever the user puts it.
+void ScanBackend::setGigahertz(int gigahertz) {
+    if (m_bandAccessPoints.gigahertz() == gigahertz)
+        return;
+    m_bandAccessPoints.setGigahertz(gigahertz);
+    m_bandChosen = true;
+    emit gigahertzChanged();
+}
 
 void ScanBackend::setLive(bool live) {
     if (m_live == live)
@@ -74,6 +86,19 @@ void ScanBackend::refreshNow() {
         return;
 
     m_accessPoints.apply(m_source->accessPoints());
+
+    // First read with an association: show that band. After that the user's
+    // choice stands.
+    if (!m_bandChosen) {
+        for (int row = 0; row < m_accessPoints.rowCount(); ++row) {
+            const QModelIndex index = m_accessPoints.index(row, 0);
+            if (!index.data(ApModel::ConnectedRole).toBool())
+                continue;
+            setGigahertz(index.data(ApModel::BandRole).toInt());
+            break;
+        }
+        m_bandChosen = true;
+    }
 
     // A scan that really ran resets the age; one that was coalesced away never
     // reaches this line, which is the whole point of asking LastScan.

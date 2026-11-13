@@ -4,9 +4,11 @@
 #include <QObject>
 #include <QString>
 
-// One access point as NetworkManager reports it. Channel width is *not* in
-// NetworkManager's data, so the app states its assumption rather than
-// presenting it as a measurement (see PLAN.md and spikes/001).
+// One access point as NetworkManager reports it. NetworkManager has no channel
+// width field at all (spike 001 checked every property), so a width here is only
+// present when something else measured it: `iw dev <iface> info` reports the
+// width of the link the machine is on, and nothing reports the others' without
+// CAP_NET_ADMIN.
 struct AccessPoint {
     QString bssid;
     QString ssid;
@@ -14,6 +16,7 @@ struct AccessPoint {
     int frequency = 0;    // MHz
     int signal = 0;       // NetworkManager's 0-100 scale, not dBm
     uint maxBitrate = 0;  // kbit/s
+    int widthMhz = 0;     // 0 means unknown, not zero
     bool connected = false;
 };
 
@@ -46,4 +49,6 @@ int bandOf(int frequency);        // 2, 5 or 6
 int channelOf(int frequency);     // channel number, -1 when the frequency is unknown
 double dbmOf(int signal);         // signal / 2 - 100 — NetworkManager's own inverse mapping
 int assumedWidthOf(int frequency);  // 20 MHz everywhere: NetworkManager does not report width
+int widthOf(const AccessPoint &ap);       // the real width when something reported it
+bool widthIsAssumed(const AccessPoint &ap);
 QString securityOf(uint flags, uint wpaFlags, uint rsnFlags);

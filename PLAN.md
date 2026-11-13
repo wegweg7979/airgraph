@@ -47,16 +47,17 @@ NetworkManager over QtDBus, `Device.Wireless.RequestScan` +
 
 ## Views
 
-1. **Spectrum map** — x = frequency for the selected band, y = signal
-   (−95…−30 dBm), one arc per BSSID spanning its assumed width, the connected
-   AP marked distinctly.
-2. **Occupancy strip + recommendation** — per-channel overlap-weighted score,
-   the 2.4 GHz 1/6/11 plans scored explicitly, DFS channels flagged on 5 GHz.
-3. **AP table** — SSID / BSSID / band / chan / width / dBm / % / security /
-   max rate / age. Deduped by BSSID.
-4. **Live history** — ring buffer per BSSID with a rolling sparkline (the raw
-   signal swings several dB while stationary, so smoothing is required), plus
-   CSV/JSON session export.
+1. **Spectrum graph** (done, M2) — one bell per access point on a linear
+   frequency axis per band, drawn with the width that is known (your own link)
+   or the stated 20 MHz assumption, with a per-channel congestion strip under it
+   carrying a bar and a five-dot rating, and the 1/6/11 recommendation on 2.4 GHz.
+   The axis is read from `iw phy` so it reflects this radio.
+2. **AP table** (done, M1) — SSID / BSSID / band / chan / width / dBm / % /
+   security / max rate / age. Deduped by BSSID and filtered to the shown band.
+3. **Live mode and history** (M3) — the 10 s cadence and the signal appear in
+   M1; the rolling sparkline per BSSID and CSV/JSON export are M3. The raw
+   signal swings several dB while stationary, so the history view needs
+   smoothing.
 
 The 6 GHz band is a first-class view that is allowed to be empty ("no 6 GHz APs
 heard"), with the phy's capability shown as a separate fact.
@@ -87,11 +88,20 @@ Agent CLI (Hype's pattern): `airgraph scan --json`, `airgraph export --csv`,
 ## Milestones
 
 - **M0** spikes 001–003 (done, see `spikes/`).
-- **M1** skeleton: build/run loop, theme, window, live AP table from a real scan.
-- **M2** spectrum map + occupancy math + best-channel recommendation.
-- **M3** live mode (10 s cadence + signals), history sparklines, CSV/JSON export.
+- **M1** skeleton: build/run loop, theme, window, live AP table from a real scan (done).
+- **M2** spectrum graph + congestion strip + best-channel recommendation (done).
+- **M3** live mode history: per-BSSID ring buffer and sparklines, CSV/JSON export.
 - **M4** agent CLI, offscreen tests, translations.
 - **M5** RPM spec + COPR + image handoff (user builds/pushes), README screenshot.
+
+## Width: measured once, assumed elsewhere
+
+NetworkManager exposes no channel width at all. `iw dev <iface> info` does, for
+the link the machine is on (unprivileged, and it is where the graph's 40 MHz bell
+for the connected AP comes from). Every other AP is drawn at the assumed 20 MHz
+and marked `~`, because reading their widths means `iw scan`, i.e. root. If
+exact widths for every AP are ever wanted, that is the deferred `pkexec` helper,
+and the app says so rather than quietly pretending.
 
 ## Packaging
 

@@ -4,6 +4,7 @@
 #include <QString>
 #include <QTimer>
 
+#include "apfiltermodel.h"
 #include "apmodel.h"
 
 class WifiSource;
@@ -26,7 +27,9 @@ class ScanBackend : public QObject {
     Q_PROPERTY(int secondsSinceScan READ secondsSinceScan NOTIFY secondsSinceScanChanged)
     Q_PROPERTY(QString scanError READ scanError NOTIFY scanErrorChanged)
     Q_PROPERTY(int scanIntervalSeconds READ scanIntervalSeconds CONSTANT)
+    Q_PROPERTY(int gigahertz READ gigahertz WRITE setGigahertz NOTIFY gigahertzChanged)
     Q_PROPERTY(ApModel *accessPoints READ accessPoints CONSTANT)
+    Q_PROPERTY(ApFilterModel *bandAccessPoints READ bandAccessPoints CONSTANT)
 
 public:
     explicit ScanBackend(WifiSource *source, QObject *parent = nullptr);
@@ -40,7 +43,10 @@ public:
     int secondsSinceScan() const { return m_secondsSinceScan; }
     QString scanError() const { return m_scanError; }
     int scanIntervalSeconds() const { return m_scanIntervalSeconds; }
+    int gigahertz() const { return m_bandAccessPoints.gigahertz(); }
+    void setGigahertz(int gigahertz);
     ApModel *accessPoints() { return &m_accessPoints; }
+    ApFilterModel *bandAccessPoints() { return &m_bandAccessPoints; }
 
     Q_INVOKABLE void rescan();
 
@@ -54,6 +60,7 @@ signals:
     void waitingForScanChanged();
     void secondsSinceScanChanged();
     void scanErrorChanged();
+    void gigahertzChanged();
 
 private:
     void tick();
@@ -64,11 +71,13 @@ private:
 
     WifiSource *m_source = nullptr;
     ApModel m_accessPoints;
+    ApFilterModel m_bandAccessPoints;
     QTimer m_refresh;
     QTimer m_cadence;
     QTimer m_clock;
     bool m_live = false;
     bool m_waiting = false;
+    bool m_bandChosen = false;
     int m_secondsSinceScan = 0;
     int m_scanIntervalSeconds = 10;
     QString m_scanError;

@@ -12,8 +12,10 @@
 #include <QUrl>
 
 #include "apmodel.h"
+#include "bandplan.h"
 #include "nmwifisource.h"
 #include "scanbackend.h"
+#include "spectrumitem.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -38,11 +40,19 @@ int main(int argc, char *argv[]) {
     NmWifiSource source;
     ScanBackend backend(&source);
 
+    // Which channels this radio actually has, straight from the phy: `iw phy`
+    // needs no privilege, unlike scanning.
+    BandPlan bandPlan;
+    bandPlan.load(source.device());
+
+    qmlRegisterType<SpectrumItem>("Airgraph", 1, 0, "SpectrumView");
+
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("backend", &backend);
+    engine.rootContext()->setContextProperty("bandPlan", &bandPlan);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;
@@ -51,7 +61,12 @@ int main(int argc, char *argv[]) {
     // it looks like, so the README screenshot and any visual check need no
     // display and no desktop session. It waits for the first scan to actually
     // finish (bounded) rather than catching the window mid-scan.
+    // `--band <2|5|6>` picks the band first, for a screenshot of a chosen one.
     const QStringList arguments = app.arguments();
+    const int bandIndex = arguments.indexOf(QStringLiteral("--band"));
+    if (bandIndex > 0 && bandIndex + 1 < arguments.size())
+        backend.setGigahertz(arguments.at(bandIndex + 1).toInt());
+
     const int grabIndex = arguments.indexOf(QStringLiteral("--grab"));
     if (grabIndex > 0 && grabIndex + 1 < arguments.size()) {
         const QString path = arguments.at(grabIndex + 1);

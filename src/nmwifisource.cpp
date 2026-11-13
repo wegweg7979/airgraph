@@ -6,6 +6,8 @@
 
 #include "nmwifisource.h"
 
+#include "bandplan.h"
+
 #include <QDBusArgument>
 #include <QDBusInterface>
 #include <QDBusObjectPath>
@@ -180,6 +182,14 @@ QList<AccessPoint> NmWifiSource::accessPoints() {
     if (!activePath.isEmpty())
         m_connectedBssid = propertiesOf(activePath, kApIf).value(QStringLiteral("HwAddress")).toString();
 
+    // The one real channel width available without privileges: what `iw dev`
+    // reports for the link the machine is on. Re-read when the association
+    // changes, not on every refresh — it cannot change otherwise.
+    if (m_connectedBssid != m_widthBssid || m_linkWidthMhz <= 0) {
+        m_linkWidthMhz = BandPlan::currentLinkWidth(m_device);
+        m_widthBssid = m_connectedBssid;
+    }
+
     for (const QDBusObjectPath &path : paths) {
         const QVariantMap properties = propertiesOf(path.path(), kApIf);
         if (properties.isEmpty())
@@ -196,6 +206,10 @@ QList<AccessPoint> NmWifiSource::accessPoints() {
                                  properties.value(QStringLiteral("RsnFlags")).toUInt());
         ap.connected = !m_connectedBssid.isEmpty()
                        && ap.bssid.compare(m_connectedBssid, Qt::CaseInsensitive) == 0;
+        // Only the link we are on has a measured width; every other AP's stays
+        // unknown and is drawn as the stated assumption.
+        if (ap.connected)
+            ap.widthMhz = m_linkWidthMhz;
         result.append(ap);
     }
 
