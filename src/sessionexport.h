@@ -15,7 +15,11 @@
 namespace sessionexport {
 
 QString toCsv(const QList<AccessPoint> &accessPoints, const ApHistory &history, const QString &device);
-QString toJson(const QList<AccessPoint> &accessPoints, const ApHistory &history, const QString &device);
+
+// `includeSeries` is false for a snapshot: `airgraph scan` is one moment, and an
+// empty "samples" array on every access point would only mislead a consumer.
+QString toJson(const QList<AccessPoint> &accessPoints, const ApHistory &history, const QString &device,
+               bool includeSeries = true);
 
 // airgraph-20261113-142530.csv — sortable, and never overwrites a previous run.
 QString suggestedFileName(const QString &extension);

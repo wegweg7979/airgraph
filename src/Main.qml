@@ -82,11 +82,13 @@ ApplicationWindow {
                 }
                 Item { Layout.fillWidth: true }
                 Text {
+                    // "no data" only when there is genuinely nothing; demo mode
+                    // has rows and no radio, and must not read as a failure.
                     text: backend.available
                           ? (backend.waitingForScan
                              ? qsTr("scanning…")
                              : qsTr("data %1 s old").arg(backend.secondsSinceScan))
-                          : qsTr("no data")
+                          : (backend.accessPoints.count > 0 ? qsTr("demo data") : qsTr("no data"))
                     color: win.dimColor
                     font.pixelSize: 13
                 }

@@ -92,7 +92,7 @@ Agent CLI (Hype's pattern): `airgraph scan --json`, `airgraph export --csv`,
 - **M1** skeleton: build/run loop, theme, window, live AP table from a real scan (done).
 - **M2** spectrum graph + congestion strip + best-channel recommendation (done).
 - **M3** live mode history: per-BSSID ring buffer and sparklines, CSV/JSON export (done).
-- **M4** agent CLI, offscreen tests, translations.
+- **M4** agent CLI (`check`, `scan`, `export`), offscreen tests, README screenshot (done). Translations: the plumbing is in place per the omarchy-app skill (every visible string is qsTr/tr, `%n` plurals, catalogs compiled into the binary, the language followed live), but only English ships — real translations need a translator, not invention.
 - **M5** RPM spec + COPR + image handoff (user builds/pushes), README screenshot.
 
 ## Width: measured once, assumed elsewhere

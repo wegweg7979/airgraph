@@ -165,6 +165,10 @@ void SpectrumItem::paint(QPainter *painter) {
 
     painter->save();
     painter->setClipRect(plot);
+
+    // Two passes: every fill first, then every outline. Two access points on the
+    // same channel are genuinely in the same place, and without this the taller
+    // bell would simply hide the shorter one instead of nesting inside it.
     for (const PlottedAp &ap : plotted) {
         const QList<QPointF> curve = spectrum::bellCurve(ap.frequency, ap.width, ap.dbm, band, plot);
         QPainterPath path(curve.first());
@@ -174,15 +178,21 @@ void SpectrumItem::paint(QPainter *painter) {
         path.lineTo(curve.first().x(), spectrum::dbmToY(-100.0, plot));
         path.closeSubpath();
 
-        const QColor colour = spectrum::strengthColor(ap.dbm);
-        QColor fill = colour;
-        fill.setAlpha(ap.connected ? 70 : 96);
+        QColor fill = spectrum::strengthColor(ap.dbm);
+        fill.setAlpha(ap.connected ? 70 : 88);
         painter->setPen(Qt::NoPen);
         painter->setBrush(fill);
         painter->drawPath(path);
+    }
 
-        QColor stroke = ap.connected ? accent : colour;
-        stroke.setAlpha(ap.connected ? 230 : 180);
+    for (const PlottedAp &ap : plotted) {
+        const QList<QPointF> curve = spectrum::bellCurve(ap.frequency, ap.width, ap.dbm, band, plot);
+        QPainterPath path(curve.first());
+        for (const QPointF &point : curve)
+            path.lineTo(point);
+
+        QColor stroke = ap.connected ? accent : spectrum::strengthColor(ap.dbm);
+        stroke.setAlpha(ap.connected ? 230 : 200);
         painter->setPen(QPen(stroke, ap.connected ? 2.0 : 1.2));
         painter->setBrush(Qt::NoBrush);
         painter->drawPath(path);

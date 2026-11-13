@@ -8,6 +8,8 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 
+#include <cmath>
+
 ScanBackend::ScanBackend(WifiSource *source, QObject *parent)
     : QObject(parent), m_source(source) {
     m_bandAccessPoints.setSourceModel(&m_accessPoints);
@@ -195,4 +197,46 @@ QString ScanBackend::exportSessionJson() {
 void ScanBackend::tick() {
     ++m_secondsSinceScan;
     emit secondsSinceScanChanged();
+}
+
+// Fabricated access points for screenshots: obviously not real ones, spread
+// across the bands, with a plausible wobble so the time graph has a line.
+void ScanBackend::applyDemoData() {
+    auto make = [](const QString &ssid, const QString &bssid, int frequency, int signal, bool connected,
+                   int widthMhz, const QString &security = QStringLiteral("rsn")) {
+        AccessPoint ap;
+        ap.ssid = ssid;
+        ap.bssid = bssid;
+        ap.frequency = frequency;
+        ap.signal = signal;
+        ap.security = security;
+        ap.maxBitrate = 866000;
+        ap.widthMhz = widthMhz;
+        ap.connected = connected;
+        return ap;
+    };
+
+    const QList<AccessPoint> demo = {
+        make(QStringLiteral("Home-5G"), QStringLiteral("02:00:00:00:00:01"), 5180, 84, true, 80),
+        make(QStringLiteral("Home-2G"), QStringLiteral("02:00:00:00:00:02"), 2412, 70, false, 20),
+        make(QStringLiteral("Studio-AP"), QStringLiteral("02:00:00:00:00:03"), 2437, 62, false, 20),
+        make(QStringLiteral("Cafe-Guest"), QStringLiteral("02:00:00:00:00:04"), 2462, 44, false, 20,
+             QStringLiteral("open")),
+        make(QStringLiteral("Neighbour-2G"), QStringLiteral("02:00:00:00:00:05"), 2462, 36, false, 20),
+        make(QStringLiteral("Neighbour-5G"), QStringLiteral("02:00:00:00:00:06"), 5500, 33, false, 20),
+    };
+
+    m_accessPoints.apply(demo);
+
+    for (int step = 0; step <= 24; ++step) {
+        const qint64 seconds = step * 10;
+        for (const AccessPoint &ap : demo) {
+            const double wobble = 2.0 * std::sin(step / 3.0 + ap.signal / 20.0);
+            m_history.record(ap.bssid, seconds, dbmOf(ap.signal) + wobble);
+        }
+    }
+
+    m_bandChosen = true;
+    setGigahertz(2);
+    setSelectedBssid(QStringLiteral("02:00:00:00:00:02"));
 }

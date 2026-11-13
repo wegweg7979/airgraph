@@ -67,6 +67,10 @@ public:
     Q_INVOKABLE QString exportSessionCsv();
     Q_INVOKABLE QString exportSessionJson();
 
+    // Made-up access points, for screenshots and visual checks. Never real ones:
+    // a published image must not carry a neighbour's network name.
+    void applyDemoData();
+
     // Re-read what NetworkManager has and fold it into the model. Public so the
     // tests can drive it without timers.
     void refreshNow();

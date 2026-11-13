@@ -58,7 +58,8 @@ QString toCsv(const QList<AccessPoint> &accessPoints, const ApHistory &history, 
     return lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
 }
 
-QString toJson(const QList<AccessPoint> &accessPoints, const ApHistory &history, const QString &device) {
+QString toJson(const QList<AccessPoint> &accessPoints, const ApHistory &history, const QString &device,
+               bool includeSeries) {
     QJsonObject root;
     root.insert(QStringLiteral("generated"), QDateTime::currentDateTime().toString(Qt::ISODate));
     root.insert(QStringLiteral("device"), device);
@@ -85,13 +86,15 @@ QString toJson(const QList<AccessPoint> &accessPoints, const ApHistory &history,
         object.insert(QStringLiteral("connected"), ap.connected);
 
         QJsonArray series;
-        for (const SignalSample &sample : history.samples(ap.bssid)) {
-            QJsonObject point;
-            point.insert(QStringLiteral("seconds"), double(sample.seconds));
-            point.insert(QStringLiteral("dbm"), sample.dbm);
-            series.append(point);
+        if (includeSeries) {
+            for (const SignalSample &sample : history.samples(ap.bssid)) {
+                QJsonObject point;
+                point.insert(QStringLiteral("seconds"), double(sample.seconds));
+                point.insert(QStringLiteral("dbm"), sample.dbm);
+                series.append(point);
+            }
+            object.insert(QStringLiteral("samples"), series);
         }
-        object.insert(QStringLiteral("samples"), series);
         array.append(object);
     }
     root.insert(QStringLiteral("access_points"), array);

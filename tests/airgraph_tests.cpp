@@ -10,6 +10,7 @@
 #include "aphistory.h"
 #include "apmodel.h"
 #include "bandplan.h"
+#include "cli.h"
 #include "scanbackend.h"
 #include "sessionexport.h"
 #include "spectrum.h"
@@ -775,6 +776,110 @@ private slots:
         const QString first = sessionexport::suggestedFileName(QStringLiteral("csv"));
         QVERIFY(first.startsWith(QStringLiteral("airgraph-")));
         QVERIFY(first.endsWith(QStringLiteral(".csv")));
+    }
+
+    // --- the headless commands ------------------------------------------------
+
+    void headlessCommandsAreRecognised()
+    {
+        QVERIFY(cli::isHeadlessCommand({ "airgraph", "check" }));
+        QVERIFY(cli::isHeadlessCommand({ "airgraph", "scan", "--json" }));
+        QVERIFY(cli::isHeadlessCommand({ "airgraph", "export", "--csv" }));
+        QVERIFY(cli::isHeadlessCommand({ "airgraph", "help" }));
+
+        // The window is the default, and the display flags are not commands.
+        QVERIFY(!cli::isHeadlessCommand({ "airgraph" }));
+        QVERIFY(!cli::isHeadlessCommand({ "airgraph", "open" }));
+        QVERIFY(!cli::isHeadlessCommand({ "airgraph", "--grab", "/tmp/x.png" }));
+        QVERIFY(!cli::isHeadlessCommand({ "airgraph" }));
+    }
+
+    void checkReportsAHealthyMachine()
+    {
+        cli::Check check;
+        check.device = QStringLiteral("wlp4s0");
+        check.available = true;
+        check.scanAccepted = true;
+        check.accessPoints = 6;
+        check.phySource = QStringLiteral("iw phy phy0");
+        check.bandChannels = { { 2, 14 }, { 5, 37 }, { 6, 59 } };
+
+        const QString text = cli::checkText(check);
+        QVERIFY(text.contains(QStringLiteral("device: wlp4s0")));
+        QVERIFY(text.contains(QStringLiteral("scan request: accepted")));
+        QVERIFY(text.contains(QStringLiteral("6 GHz: 59 channels this radio can hear")));
+
+        const QJsonObject json = QJsonDocument::fromJson(cli::checkJson(check).toUtf8()).object();
+        QCOMPARE(json.value("available").toBool(), true);
+        QCOMPARE(json.value("band_channels").toObject().value("6").toInt(), 59);
+    }
+
+    void checkReportsABlockerInsteadOfPretending()
+    {
+        cli::Check check;
+        check.available = false;
+        check.problem = QStringLiteral("Wi-Fi is switched off.");
+
+        const QString text = cli::checkText(check);
+        QVERIFY(text.startsWith(QStringLiteral("cannot survey:")));
+        QVERIFY(text.contains(QStringLiteral("switched off")));
+
+        const QJsonObject json = QJsonDocument::fromJson(cli::checkJson(check).toUtf8()).object();
+        QCOMPARE(json.value("available").toBool(), false);
+        QCOMPARE(json.value("problem").toString(), QStringLiteral("Wi-Fi is switched off."));
+    }
+
+    void scanTextIsATableWithTheSameFields()
+    {
+        AccessPoint measured = makeAp("mine", "AA:AA:AA:AA:AA:01", 5500, 70, true);
+        measured.widthMhz = 40;
+        const QString text = cli::scanText({ measured, makeAp("other", "AA:AA:AA:AA:AA:02", 2412, 40) },
+                                           QStringLiteral("fake0"));
+
+        QVERIFY(text.startsWith(QStringLiteral("device fake0 — 2 access points")));
+        QVERIFY(text.contains(QStringLiteral("SSID")));
+        QVERIFY(text.contains(QStringLiteral("55:20")) == false);   // no stray formatting
+        QVERIFY(text.contains(QStringLiteral("100")));              // channel
+        QVERIFY(text.contains(QStringLiteral("40 ")));              // measured width, no ~
+        QVERIFY(text.contains(QStringLiteral("20~")));              // assumed width, marked
+        QVERIFY(text.contains(QStringLiteral("-65.0")));            // dBm
+    }
+
+    void demoDataIsFabricatedAndRendersEverything()
+    {
+        FakeWifiSource source;
+        ScanBackend backend(&source);
+        backend.applyDemoData();
+
+        // Nothing that looks like a real network, and all three bands covered
+        // except 6 GHz, which must stay honestly empty.
+        const QVariantMap counts = backend.accessPoints()->countsByBand();
+        QVERIFY(counts.value("2").toInt() >= 3);
+        QVERIFY(counts.value("5").toInt() >= 1);
+        QCOMPARE(counts.value("6").toInt(), 0);
+
+        for (int row = 0; row < backend.accessPoints()->rowCount(); ++row) {
+            const QString ssid = backend.accessPoints()->index(row, 0).data(ApModel::SsidRole).toString();
+            QVERIFY(!ssid.contains(QStringLiteral("hurunagus")));
+            QVERIFY(!ssid.contains(QStringLiteral("VM")));
+        }
+
+        // Enough history for the time graph to have a line.
+        QVERIFY(backend.history()->sampleCount(backend.selectedBssid()) > 5);
+    }
+
+    void snapshotJsonHasNoEmptySeries()
+    {
+        ApHistory none;
+        const QJsonObject snapshot = QJsonDocument::fromJson(
+            sessionexport::toJson({ makeAp("mine", "AA:AA:AA:AA:AA:01", 5500, 70, true) }, none,
+                                  QStringLiteral("fake0"), false).toUtf8()).object();
+        QVERIFY(!snapshot.value("access_points").toArray().first().toObject().contains("samples"));
+
+        const QJsonObject session = QJsonDocument::fromJson(
+            sessionexport::toJson({ makeAp("mine", "AA:AA:AA:AA:AA:01", 5500, 70, true) }, none,
+                                  QStringLiteral("fake0")).toUtf8()).object();
+        QVERIFY(session.value("access_points").toArray().first().toObject().contains("samples"));
     }
 
 private:

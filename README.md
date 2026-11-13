@@ -2,7 +2,12 @@
 
 See which Wi-Fi channels are crowded, and how strong each access point is: a
 channel graph in the shape of the Wi-Fi Analyzer app, plus the raw table behind
-it.
+it and the signal over time.
+
+![airgraph showing the 2.4 GHz channel graph, the congestion strip, the signal-over-time panel and the access point table](assets/screenshot.png)
+
+*(The screenshot above is `--demo`: made-up access points, so no real network
+name is published.)*
 
 Scans with NetworkManager over D-Bus — no root, no polkit prompt — and draws
 what is on the air. It never connects, disconnects, or changes radio or
@@ -16,6 +21,20 @@ regulatory state: it reads the air and reports it.
 
 ```sh
 bin/build && ./build/airgraph
+```
+
+## Commands
+
+Agents and terminals get the same data without a window — `--json` wherever it
+makes sense, exit 0 or 1, errors on stderr:
+
+```sh
+airgraph check                 # can this machine be surveyed? device, bands, scan accepted
+airgraph scan                  # one scan, printed as a table
+airgraph scan --json           # the same, as JSON
+airgraph export --csv           # scan, then write ~/Documents/airgraph-<stamp>.csv
+airgraph export --json --live 60  # keep scanning for a minute first: the series comes too
+airgraph help
 ```
 
 ## Keys
