@@ -32,8 +32,8 @@ BuildRequires:  make
 BuildRequires:  desktop-file-utils
 # airgraph.pro is `QT += core gui qml quick quickcontrols2 dbus`, and the test
 # build adds testlib. Qt Quick Controls — including the Material style the
-# window sets with QQuickStyle — ships inside qt6-qtdeclarative on Fedora 45;
-# there is no qt6-qtquickcontrols2 package any more. QtDBus and QtTest come with
+# window sets with QQuickStyle — ships inside qt6-qtdeclarative on Fedora 44 and
+# 45; there is no qt6-qtquickcontrols2 package any more. QtDBus and QtTest come with
 # qt6-qtbase-devel.
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  qt6-qtdeclarative-devel
