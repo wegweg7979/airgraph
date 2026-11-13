@@ -5,5 +5,5 @@ Comment=See which Wi-Fi channels are crowded, and how strong each access point i
 Exec=airgraph
 Icon=airgraph
 Terminal=false
-Categories=Utility;Network;
+Categories=Network;
 StartupWMClass=airgraph

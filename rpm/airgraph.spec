@@ -12,7 +12,7 @@
 %global debug_package %{nil}
 
 Name:           airgraph
-Version:        0.1.0
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        See which Wi-Fi channels are crowded, and how strong each access point is
 
@@ -87,6 +87,11 @@ QT_QPA_PLATFORM=offscreen ./bin/test
 %{_datadir}/applications/airgraph.desktop
 
 %changelog
+* Fri Nov 13 2026 wegweg7979 <diode-crumble-0h@icloud.com> - 0.1.1-1
+- One main category in the desktop entry (was Utility;Network;, which counts as
+  two, so some application menus listed Airgraph more than once). The bundled
+  binary reports 0.1.1 to match.
+
 * Fri Nov 13 2026 wegweg7979 <diode-crumble-0h@icloud.com> - 0.1.0-1
 - First release: the channel graph, the live access point table, signal over
   time, CSV/JSON export, and the headless commands (check / scan / export).
